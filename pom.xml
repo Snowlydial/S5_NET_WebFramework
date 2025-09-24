@@ -1,0 +1,99 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.snowly.framework</groupId>
+  <artifactId>web-framework</artifactId>
+  <version>1.0</version>
+  <name>web-framework Maven Webapp</name>
+  <packaging>war</packaging>
+
+  <properties>
+      <maven.compiler.source>21</maven.compiler.source>
+      <maven.compiler.target>21</maven.compiler.target>
+  </properties>
+  
+  <dependencies>
+    <dependency>
+      <groupId>junit</groupId>
+        <artifactId>junit</artifactId>
+        <version>3.8.1</version>
+      <scope>test</scope>
+    </dependency>
+    
+    <dependency>
+        <groupId>jakarta.servlet</groupId>
+        <artifactId>jakarta.servlet-api</artifactId>
+        <version>6.0.0</version>
+        <scope>provided</scope>
+    </dependency>
+  </dependencies>
+  
+  <build>
+    <finalName>web-framework</finalName>
+
+    <plugins>
+      <!-- Step 1: Create JAR of your classes -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.3.0</version>
+        <executions>
+            <execution>
+                <phase>package</phase>
+                <goals>
+                    <goal>jar</goal>
+                </goals>
+                <configuration>
+                    <classifier>framework</classifier>
+                </configuration>
+            </execution>
+        </executions>
+      </plugin>
+
+      <!-- Step 2: Create WAR with JAR in lib/ -->
+      <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-war-plugin</artifactId>
+          <version>3.4.0</version>
+          <configuration>
+              <!-- Exclude classes from WEB-INF/classes -->
+              <packagingExcludes>WEB-INF/classes/**</packagingExcludes>
+              
+              <!-- Include our framework JAR in lib/ -->
+              <webResources>
+                  <resource>
+                      <directory>${project.build.directory}</directory>
+                      <includes>
+                          <include>${project.artifactId}-${project.version}-framework.jar</include>
+                      </includes>
+                      <targetPath>WEB-INF/lib</targetPath>
+                  </resource>
+              </webResources>
+          </configuration>
+      </plugin>
+
+      <!-- Step 3: Deploy WAR to Tomcat 10 -->
+      <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-antrun-plugin</artifactId>
+          <version>3.1.0</version>
+          <executions>
+              <execution>
+                  <phase>package</phase>
+                  <goals>
+                      <goal>run</goal>
+                  </goals>
+                  <configuration>
+                      <target>
+                          <copy file="${project.build.directory}/${project.build.finalName}.war" 
+                                todir="/run/media/snowly/5818A74F18A72B48/apache-tomcat-10.1.28/webapps/" 
+                                overwrite="true"/>
+                      </target>
+                  </configuration>
+              </execution>
+          </executions>
+      </plugin>
+
+    </plugins>
+  </build>
+</project>

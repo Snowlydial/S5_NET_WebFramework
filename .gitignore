@@ -1,0 +1,20 @@
+# Standard Java ignores
+*.class
+*.jar
+*.war
+*.ear
+*.logs
+*.iml
+.idea/
+.vscode/
+.settings/
+.project
+.classpath
+
+# target/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+!.mvn/wrapper/maven-wrapper.jar
