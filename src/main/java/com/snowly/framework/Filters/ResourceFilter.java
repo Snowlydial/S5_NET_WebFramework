@@ -1,9 +1,9 @@
-package com.snowly.framework;
+package com.snowly.framework.Filters;
 
+import java.io.IOException;
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 // import jakarta.servlet.http.HttpServletResponse;
-import java.io.IOException;
 
 public class ResourceFilter implements Filter {
     

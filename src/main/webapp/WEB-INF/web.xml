@@ -8,7 +8,7 @@
     
     <filter>
         <filter-name>ResourceFilter</filter-name>
-        <filter-class>com.snowly.framework.ResourceFilter</filter-class>
+        <filter-class>com.snowly.framework.Filters.ResourceFilter</filter-class>
     </filter>
 
     <filter-mapping>
