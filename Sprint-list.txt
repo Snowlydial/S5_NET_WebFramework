@@ -1,0 +1,15 @@
+Sp1:
+- Map all URL to FrontServlet which print the URL (a default page of some sort, like an error if the page doesn't exist)
+- But before using the FrontServlet
+    -> check if ressource exists in the FrontServlet (using custom method or a filter), 
+        if yes then use requestDispatcher to that ressource, 
+    -> use a filter/a custom class, filter associate to /* first instead of FrontServlet, then the filter would look for the ressource, 
+        if not exist => use FS
+
+Sp2:
+- We have to know all URLs that are inside the project itself (uses of annotation)
+    => create an annotation (for methods) which takes a parameter (an URL)
+    => test if the annotation works (not in the framework, but in the test???), create a class with void main
+
+    => 
+
