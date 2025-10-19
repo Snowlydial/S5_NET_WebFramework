@@ -40,11 +40,8 @@ public class TestAnnotation {
         // Get all methods
         Method[] methods = clazz.getDeclaredMethods();
         
-        System.out.println("Scanning methods for @AnotURL annotations:\n");
-        
         int annotatedCount = 0;
         
-        // Loop through all methods
         for (Method method : methods) {
             if (method.isAnnotationPresent(AnotURL.class)) {
                 // Get the annotation
@@ -53,7 +50,6 @@ public class TestAnnotation {
                 // Get the URL value
                 String url = annotation.value();
                 
-                // Print the result
                 System.out.println("Method: " + method.getName());
                 System.out.println("URL: " + (url.isEmpty() ? "(empty/default)" : url));
                 System.out.println();
@@ -65,6 +61,6 @@ public class TestAnnotation {
         System.out.println("---");
         System.out.println("Total methods found: " + methods.length);
         System.out.println("Methods with @AnotURL: " + annotatedCount);
-        System.out.println("Methods without annotation: " + (methods.length - annotatedCount - 1)); // -1 for main method
+        System.out.println("Methods without annotation: " + (methods.length - annotatedCount));
     }
 }
