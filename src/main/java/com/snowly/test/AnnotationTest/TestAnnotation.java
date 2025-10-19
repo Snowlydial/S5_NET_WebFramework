@@ -52,13 +52,12 @@ public class TestAnnotation {
                 
                 System.out.println("Method: " + method.getName());
                 System.out.println("URL: " + (url.isEmpty() ? "(empty/default)" : url));
-                System.out.println();
                 
                 annotatedCount++;
             }
         }
         
-        System.out.println("---");
+        System.out.println();
         System.out.println("Total methods found: " + methods.length);
         System.out.println("Methods with @AnotURL: " + annotatedCount);
         System.out.println("Methods without annotation: " + (methods.length - annotatedCount));
