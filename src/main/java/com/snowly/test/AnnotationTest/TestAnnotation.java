@@ -3,8 +3,8 @@ package com.snowly.test.AnnotationTest;
 import com.snowly.framework.Annotations.AnotURL;
 import java.lang.reflect.Method;
 
+// Run with: javac -d out src/main/java/com/snowly/test/AnnotationTest/TestAnnotation.java
 public class TestAnnotation {
-    
     //?==== Methods for testing
     @AnotURL("/home")
     public void homePage() {
