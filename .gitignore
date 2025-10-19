@@ -1,4 +1,6 @@
 # Standard Java ignores
+*.jar
+*.war
 *.class
 *.ear
 *.logs
@@ -16,3 +18,4 @@
 Thumbs.db
 
 !.mvn/wrapper/maven-wrapper.jar
+/target/maven-status
