@@ -22,13 +22,13 @@ public class ResourceFilter implements Filter {
         HttpServletRequest httpRequest = (HttpServletRequest) request;
         HttpServletResponse httpResponse = (HttpServletResponse) response;
         
-        // Get the full path from URL (/web-framework/index.html)
+        // Get the full path from URL (/web-framework/anything.html)
         String requestURI = httpRequest.getRequestURI();
         
         // Get base path of web app (/web-framework)
         String contextPath = httpRequest.getContextPath();
         
-        // Get the resource path relative to web app (/index.html)
+        // Get the resource path relative to web app (/anything.html)
         String resourcePath = requestURI.substring(contextPath.length());
         
         // If resourcePath is empty or just "/", default to "/index.html"
