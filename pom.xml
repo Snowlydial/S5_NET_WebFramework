@@ -46,6 +46,9 @@
                 </goals>
                 <configuration>
                     <classifier>framework</classifier>
+                    <excludes>
+                        <exclude>com/snowly/test/**</exclude>
+                    </excludes>
                 </configuration>
             </execution>
         </executions>
