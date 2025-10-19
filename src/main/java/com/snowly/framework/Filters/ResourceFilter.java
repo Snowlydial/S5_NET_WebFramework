@@ -1,9 +1,10 @@
 package com.snowly.framework.Filters;
 
 import java.io.IOException;
+import java.net.URL;
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
-// import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 
 public class ResourceFilter implements Filter {
     
@@ -12,7 +13,6 @@ public class ResourceFilter implements Filter {
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
         this.servletContext = filterConfig.getServletContext();
-        System.out.println("ResourceFilter initialized");
     }
     
     @Override
@@ -20,45 +20,56 @@ public class ResourceFilter implements Filter {
             throws IOException, ServletException {
         
         HttpServletRequest httpRequest = (HttpServletRequest) request;
-        // HttpServletResponse httpResponse = (HttpServletResponse) response;
+        HttpServletResponse httpResponse = (HttpServletResponse) response;
         
+        // Get the full path from URL (/web-framework/index.html)
         String requestURI = httpRequest.getRequestURI();
+        
+        // Get base path of web app (/web-framework)
         String contextPath = httpRequest.getContextPath();
         
-        // Remove context path to get the resource path
+        // Get the resource path relative to web app (/index.html)
         String resourcePath = requestURI.substring(contextPath.length());
-        System.out.println("ResourceFilter: Checking resource: " + resourcePath);
         
+        // If resourcePath is empty or just "/", default to "/index.html"
+        if (resourcePath.isEmpty() || resourcePath.equals("/")) {
+            resourcePath = "/index.html";
+            httpRequest = new CustomRequestWrapper(httpRequest, resourcePath);
+        }
+        
+        httpResponse.addHeader("X-Debug-URI", requestURI);
+        httpResponse.addHeader("X-Debug-Context", contextPath);
+        httpResponse.addHeader("X-Debug-Resource", resourcePath);
+        
+        //* Check if the resource exists
         if (resourceExists(resourcePath)) {
-            System.out.println("ResourceFilter: Resource found, forwarding to: " + resourcePath);
-            RequestDispatcher dispatcher = servletContext.getRequestDispatcher(resourcePath);
-            dispatcher.forward(request, response);
+            httpResponse.addHeader("X-Debug-Status", "Resource Found - Using Default Servlet");
+            RequestDispatcher dispatcher = servletContext.getNamedDispatcher("default");
+            dispatcher.forward(httpRequest, response);
             return;
         }
         
-        // Resource doesn't exist, let it pass through to FrontServlet
-        System.out.println("ResourceFilter: Resource not found, passing to FrontServlet");
-        chain.doFilter(request, response);
+        //* Resource doesn't exist, pass to FrontServlet
+        httpResponse.addHeader("X-Debug-Status", "Resource Not Found - Passing to FrontServlet");
+        chain.doFilter(httpRequest, response);
     }
     
     private boolean resourceExists(String resourcePath) {
         try {
-            if (servletContext.getResource(resourcePath) != null) {
+            URL resourceURL = servletContext.getResource(resourcePath);
+            
+            if (resourceURL != null) {
                 String realPath = servletContext.getRealPath(resourcePath);
                 if (realPath != null) {
                     java.io.File file = new java.io.File(realPath);
-                    // Check if it's a file (not a directory)
                     return file.exists() && file.isFile();
                 }
+                return true;
             }
         } catch (Exception e) {
-            System.out.println("Error checking resource: " + e.getMessage());
+            e.printStackTrace();
         }
         return false;
     }
     
-    @Override
-    public void destroy() {
-        System.out.println("ResourceFilter destroyed");
-    }
 }
