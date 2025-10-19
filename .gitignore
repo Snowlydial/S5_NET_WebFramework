@@ -1,7 +1,5 @@
 # Standard Java ignores
 *.class
-*.jar
-*.war
 *.ear
 *.logs
 *.iml
