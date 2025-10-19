@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project name="maven-antrun-" default="main">
-  <target name="main">
-    <delete includeEmptyDirs="true" dir="/run/media/snowly/5818A74F18A72B48/Users/decid/Desktop/DeskCodes/S5/Naina/web-framework/target/web-framework/WEB-INF/classes" />
-    <copy file="/run/media/snowly/5818A74F18A72B48/Users/decid/Desktop/DeskCodes/S5/Naina/web-framework/target/web-framework.war" todir="/run/media/snowly/5818A74F18A72B48/apache-tomcat-10.1.28/webapps/" overwrite="true" />
-  </target>
-</project>

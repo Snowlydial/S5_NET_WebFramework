@@ -46,10 +46,9 @@ public class FrontServlet extends HttpServlet {
             out.println("    <div class='info'>");
             out.println("      <h2>Request Information:</h2>");
             out.println("        <p><strong>Full URL:</strong> <span class='url'>" + fullURL + "</span></p>");
+            out.println("        <p><strong>Context Path:</strong> " + request.getContextPath() + "</p>");
             out.println("        <p><strong>URI Path:</strong> <span class='url'>" + requestURI + "</span></p>");
             out.println("        <p><strong>Method:</strong> " + request.getMethod() + "</p>");
-            out.println("        <p><strong>Context Path:</strong> " + request.getContextPath() + "</p>");
-            out.println("        <p><strong>Servlet Path:</strong> " + request.getServletPath() + "</p>");
             out.println("    </div>");
             out.println("    <p><em>Request handled by the Front Controller servlet.</em></p>");
             out.println("</body>");
