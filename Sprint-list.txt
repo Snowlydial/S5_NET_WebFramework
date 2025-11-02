@@ -11,5 +11,31 @@ Sp2:
     => create an annotation (for methods) which takes a parameter (an URL)
     => test if the annotation works (not in the framework, but in the test???), create a class with void main
 
-    => 
+    => when doing an url that isn't inside our annotation, return to error404 
+    => need to know all the URLs annotation within all our classes
+        => use hashmap<url,hashmap<>>
 
+
+Sprint 2.1:
+    annotation sur classe: create AnotController
+    In an isolated project:
+    - test1.java: no controller
+    - test2.java: w/ controller
+    - test3.java: w/ controller
+    do a main.java then execute -> scan everthing in classpath (or give list of package where there are controller)
+                                -> does the file have 
+
+Sprint 3:
+    at starting up/first call of servelt (do it in init of the fronservlet) or even better before anything has access to the app
+    a code will be executed only once for performance reason, that code scans all classes in the classpath:
+    "which one are annoted controller"
+    return a list and store it while the app is alive.
+
+    goal: "here are the urls supported"
+    "here are the class and method associated to these URL (store those)
+
+    if supported: show this is the class, this is the method
+    else error 404
+
+Sprint 4:
+    Invoke ????
