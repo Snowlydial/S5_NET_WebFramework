@@ -2,8 +2,12 @@ package com.snowly.framework.Util;
 
 import java.lang.reflect.Method;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import com.snowly.framework.Annotations.AnotController;
+import com.snowly.framework.Annotations.AnotURL;
 
 public class Mapping {
     
@@ -92,4 +96,69 @@ public class Mapping {
         }
         System.out.println("Total: " + size() + " mappings");
     }
+
+    /**
+     * Build URL mapping
+    */
+    public static Mapping buildMapping(List<Class<?>> controllers) {
+        Mapping mapping = new Mapping();
+        
+        if (controllers == null || controllers.isEmpty()) {
+            System.out.println("No controllers found to map");
+            return mapping;
+        }
+        
+        System.out.println("\n=== Building URL Mappings ===");
+        
+        for (Class<?> controllerClass : controllers) {
+            try {
+                AnotController controllerAnnot = controllerClass.getAnnotation(AnotController.class);
+                String basePath = controllerAnnot.value();
+                
+                // Create instance of controller (assuming no-arg constructor)
+                Object controllerInstance = controllerClass.getDeclaredConstructor().newInstance();
+                
+                // Process all methods with @AnotURL annotation
+                for (Method method : controllerClass.getDeclaredMethods()) {
+                    if (method.isAnnotationPresent(AnotURL.class)) {
+                        AnotURL urlAnnot = method.getAnnotation(AnotURL.class);
+                        String methodPath = urlAnnot.value();
+                        
+                        // Build full URL path
+                        String fullUrl = normalizePath(basePath + methodPath);
+                        
+                        // Add to mapping
+                        mapping.addMapping(fullUrl, method, controllerInstance, controllerClass);
+                        
+                        System.out.println("Mapped: " + fullUrl + " -> " + controllerClass.getSimpleName() + "." + method.getName() + "()");
+                    }
+                }
+                
+            } catch (Exception e) {
+                System.err.println("Error processing controller: " + controllerClass.getName());
+                e.printStackTrace();
+            }
+        }
+        
+        System.out.println("Total mappings created: " + mapping.size());
+        return mapping;
+    }
+
+    /**
+     * Normalize URL path
+    */
+    private static String normalizePath(String path) {
+        if (path == null || path.isEmpty()) {
+            return "/";
+        }
+        
+        if (!path.startsWith("/")) {
+            path = "/" + path;
+        }
+        
+        path = path.replace("//", "/");
+        
+        return path;
+    }
+
 }
