@@ -19,3 +19,4 @@ Thumbs.db
 
 !.mvn/wrapper/maven-wrapper.jar
 /target/maven-status
+/target

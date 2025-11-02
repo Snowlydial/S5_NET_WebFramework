@@ -1,106 +1,51 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>com.snowly.framework</groupId>
+  <groupId>com.snowly</groupId>
   <artifactId>web-framework</artifactId>
   <version>1.0-SNAPSHOT</version>
-  <name>web-framework Maven Webapp</name>
-  <packaging>war</packaging>
+  <name>Snowly Web Framework</name>
+  <packaging>jar</packaging>
 
   <properties>
-      <maven.compiler.source>21</maven.compiler.source>
-      <maven.compiler.target>21</maven.compiler.target>
+    <maven.compiler.source>21</maven.compiler.source>
+    <maven.compiler.target>21</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
   
   <dependencies>
+    <dependency>
+      <groupId>jakarta.servlet</groupId>
+      <artifactId>jakarta.servlet-api</artifactId>
+      <version>6.0.0</version>
+      <scope>provided</scope>
+    </dependency>
+    
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
       <version>4.13.2</version>
       <scope>test</scope>
     </dependency>
-    
-    <dependency>
-        <groupId>jakarta.servlet</groupId>
-        <artifactId>jakarta.servlet-api</artifactId>
-        <version>6.0.0</version>
-        <scope>provided</scope>
-    </dependency>
   </dependencies>
   
   <build>
-    <finalName>web-framework</finalName>
-
     <plugins>
-      <!-- Step 1: Create JAR FIRST -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-jar-plugin</artifactId>
-        <version>3.3.0</version>
-        <executions>
-            <execution>
-                <id>create-framework-jar</id>
-                <phase>prepare-package</phase>
-                <goals>
-                    <goal>jar</goal>
-                </goals>
-                <configuration>
-                    <classifier>framework</classifier>
-                    <excludes>
-                        <exclude>com/snowly/test/**</exclude>
-                    </excludes>
-                </configuration>
-            </execution>
-        </executions>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.11.0</version>
+        <configuration>
+          <source>21</source>
+          <target>21</target>
+        </configuration>
       </plugin>
-
-      <!-- Step 2: Copy JAR to staging area -->
+      
+      <!-- Install framework JAR to local repository for test project to use -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-antrun-plugin</artifactId>
+        <artifactId>maven-install-plugin</artifactId>
         <version>3.1.0</version>
-        <executions>
-            <execution>
-                <id>copy-jar-to-lib</id>
-                <phase>prepare-package</phase>
-                <goals>
-                    <goal>run</goal>
-                </goals>
-                <configuration>
-                    <target>
-                        <mkdir dir="${project.build.directory}/${project.build.finalName}/WEB-INF/lib"/>
-                        <copy file="${project.build.directory}/${project.build.finalName}-framework.jar" 
-                              todir="${project.build.directory}/${project.build.finalName}/WEB-INF/lib"/>
-                    </target>
-                </configuration>
-            </execution>
-            <execution>
-                <id>deploy-to-tomcat</id>
-                <phase>package</phase>
-                <goals>
-                    <goal>run</goal>
-                </goals>
-                <configuration>
-                    <target>
-                        <delete dir="${project.build.directory}/${project.build.finalName}/WEB-INF/classes" includeEmptyDirs="true"/>
-                        <copy file="${project.build.directory}/${project.build.finalName}.war" 
-                              todir="/run/media/snowly/5818A74F18A72B48/apache-tomcat-10.1.28/webapps/" 
-                              overwrite="true"/>
-                    </target>
-                </configuration>
-            </execution>
-        </executions>
-      </plugin>
-
-      <!-- Step 3: Create WAR -->
-      <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-war-plugin</artifactId>
-          <version>3.4.0</version>
-          <configuration>
-              <!-- Exclude classes from WEB-INF/classes -->
-              <packagingExcludes>WEB-INF/classes/**</packagingExcludes>
-          </configuration>
       </plugin>
     </plugins>
   </build>
