@@ -38,4 +38,25 @@ Sprint 3:
     else error 404
 
 Sprint 4:
-    Invoke ????
+    Invoke a method associated to the url 
+
+    Controller:
+        test if return val is varchar
+        Public String method {return ...}
+            if returned varchar: show on the page via a printwriter
+
+Sprint 4 bis:
+    Create in fmk a class 'modelView'
+    Attribut: String view
+    Method in controller: 
+        new method that return modelView
+        associate an URL to it
+        can create one instance of modelView
+        inside do mv.setView(test.jsp)
+
+        getView put in the requestDispatcher
+
+    Create test.jsp
+    Test if calling associated url in the controller shows/render the test.jsp
+
+    In test check return value 
