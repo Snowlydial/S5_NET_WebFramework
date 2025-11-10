@@ -15,9 +15,7 @@ public class ResourceFilter implements Filter {
     }
     
     @Override
-    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) 
-            throws IOException, ServletException {
-        
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
         HttpServletRequest httpRequest = (HttpServletRequest) request;
         
         String requestURI = httpRequest.getRequestURI();
@@ -25,37 +23,67 @@ public class ResourceFilter implements Filter {
         String resourcePath = requestURI.substring(contextPath.length());
         
         System.out.println("[ResourceFilter] Request: " + resourcePath);
-        System.out.println("[ResourceFilter] Context Path: " + contextPath);
-        System.out.println("[ResourceFilter] Resource Path: " + resourcePath);
         
+        // Handle root path
         if (resourcePath.isEmpty() || resourcePath.equals("/")) {
             resourcePath = "/index.html";
             httpRequest = new CustomRequestWrapper(httpRequest, resourcePath);
             System.out.println("[ResourceFilter] Redirected root to: " + resourcePath);
         }
         
-        if (isStaticResource(resourcePath)) {
-            System.out.println("[ResourceFilter] IS static resource: " + resourcePath);
-            
-            if (resourceExists(resourcePath)) {
-                System.out.println("[ResourceFilter] Resource EXISTS, forwarding to default servlet");
-                RequestDispatcher dispatcher = servletContext.getNamedDispatcher("default");
-                dispatcher.forward(httpRequest, response);
-                return;
-            } else {
-                System.out.println("[ResourceFilter] Resource NOT FOUND: " + resourcePath);
-            }
-        } else {
-            System.out.println("[ResourceFilter] NOT a static resource: " + resourcePath);
+        if (handleJSP(httpRequest, response, resourcePath, chain)) {
+            return;
         }
         
-        // Pass to FrontServlet
+        if (handleStaticResource(httpRequest, response, resourcePath)) {
+            return;
+        }
+        
+        // Not JSP or static resource - pass to FrontServlet
         System.out.println("[ResourceFilter] Passing to FrontServlet: " + resourcePath);
         chain.doFilter(httpRequest, response);
     }
 
+    private boolean handleJSP(HttpServletRequest request, ServletResponse response, String resourcePath, FilterChain chain) throws IOException, ServletException {
+        if (!resourcePath.endsWith(".jsp")) {
+            return false;
+        }
+        
+        System.out.println("[ResourceFilter] JSP file detected: " + resourcePath);
+        RequestDispatcher dispatcher = servletContext.getNamedDispatcher("jsp");
+        
+        if (dispatcher != null) {
+            System.out.println("[ResourceFilter] Forwarding to JSP servlet");
+            dispatcher.forward(request, response);
+        } else {
+            System.out.println("[ResourceFilter] JSP servlet not found, passing through chain");
+            chain.doFilter(request, response);
+        }
+        
+        return true;
+    }
+    
+    private boolean handleStaticResource(HttpServletRequest request, ServletResponse response, String resourcePath) throws IOException, ServletException {
+        if (!isStaticResource(resourcePath)) {
+            System.out.println("[ResourceFilter] NOT a static resource: " + resourcePath);
+            return false;
+        }
+        
+        System.out.println("[ResourceFilter] IS static resource: " + resourcePath);
+        
+        if (resourceExists(resourcePath)) {
+            System.out.println("[ResourceFilter] Resource EXISTS, forwarding to default servlet");
+            RequestDispatcher dispatcher = servletContext.getNamedDispatcher("default");
+            dispatcher.forward(request, response);
+            return true;
+        } else {
+            System.out.println("[ResourceFilter] Resource NOT FOUND: " + resourcePath);
+            return false;
+        }
+    }
+
     private boolean isStaticResource(String path) {
-        return path.matches(".*\\.(html|htm|css|js|jpg|jpeg|png|gif|ico|svg|txt|pdf|jsp)$");
+        return path.matches(".*\\.(html|htm|css|js|jpg|jpeg|png|gif|ico|svg|txt|pdf)$");
     }
 
     private boolean resourceExists(String resourcePath) {
