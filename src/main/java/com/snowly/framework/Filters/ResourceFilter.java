@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.net.URL;
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
 public class ResourceFilter implements Filter {
     
@@ -20,44 +19,48 @@ public class ResourceFilter implements Filter {
             throws IOException, ServletException {
         
         HttpServletRequest httpRequest = (HttpServletRequest) request;
-        HttpServletResponse httpResponse = (HttpServletResponse) response;
         
-        // Get the full path from URL (/web-framework/anything.html)
         String requestURI = httpRequest.getRequestURI();
-        
-        // Get base path of web app (/web-framework)
         String contextPath = httpRequest.getContextPath();
-        
-        // Get the resource path relative to web app (/anything.html)
         String resourcePath = requestURI.substring(contextPath.length());
         
-        // If resourcePath is empty or just "/", default to "/index.html"
+        System.out.println("[ResourceFilter] Request: " + resourcePath);
+        System.out.println("[ResourceFilter] Context Path: " + contextPath);
+        System.out.println("[ResourceFilter] Resource Path: " + resourcePath);
+        
         if (resourcePath.isEmpty() || resourcePath.equals("/")) {
             resourcePath = "/index.html";
             httpRequest = new CustomRequestWrapper(httpRequest, resourcePath);
+            System.out.println("[ResourceFilter] Redirected root to: " + resourcePath);
         }
         
-        httpResponse.addHeader("X-Debug-URI", requestURI);
-        httpResponse.addHeader("X-Debug-Context", contextPath);
-        httpResponse.addHeader("X-Debug-Resource", resourcePath);
-        
-        //* Check if the resource exists
-        if (resourceExists(resourcePath)) {
-            httpResponse.addHeader("X-Debug-Status", "Resource Found - Using Default Servlet");
-            RequestDispatcher dispatcher = servletContext.getNamedDispatcher("default");
-            dispatcher.forward(httpRequest, response);
-            return;
+        if (isStaticResource(resourcePath)) {
+            System.out.println("[ResourceFilter] IS static resource: " + resourcePath);
+            
+            if (resourceExists(resourcePath)) {
+                System.out.println("[ResourceFilter] Resource EXISTS, forwarding to default servlet");
+                RequestDispatcher dispatcher = servletContext.getNamedDispatcher("default");
+                dispatcher.forward(httpRequest, response);
+                return;
+            } else {
+                System.out.println("[ResourceFilter] Resource NOT FOUND: " + resourcePath);
+            }
+        } else {
+            System.out.println("[ResourceFilter] NOT a static resource: " + resourcePath);
         }
         
-        //* Resource doesn't exist, pass to FrontServlet
-        httpResponse.addHeader("X-Debug-Status", "Resource Not Found - Passing to FrontServlet");
+        // Pass to FrontServlet
+        System.out.println("[ResourceFilter] Passing to FrontServlet: " + resourcePath);
         chain.doFilter(httpRequest, response);
     }
-    
+
+    private boolean isStaticResource(String path) {
+        return path.matches(".*\\.(html|htm|css|js|jpg|jpeg|png|gif|ico|svg|txt|pdf|jsp)$");
+    }
+
     private boolean resourceExists(String resourcePath) {
         try {
             URL resourceURL = servletContext.getResource(resourcePath);
-            
             if (resourceURL != null) {
                 String realPath = servletContext.getRealPath(resourcePath);
                 if (realPath != null) {
@@ -72,4 +75,7 @@ public class ResourceFilter implements Filter {
         return false;
     }
     
+    @Override
+    public void destroy() {
+    }
 }
