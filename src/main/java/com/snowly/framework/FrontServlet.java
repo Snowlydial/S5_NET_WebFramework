@@ -15,6 +15,7 @@ import com.snowly.framework.Util.Mapping;
 import com.snowly.framework.Annotations.AnotController;
 import com.snowly.framework.Annotations.AnotURL;
 import com.snowly.framework.Util.ControllerScanner;
+import com.snowly.framework.Util.ModelView;
 
 public class FrontServlet extends HttpServlet {
     
@@ -45,6 +46,7 @@ public class FrontServlet extends HttpServlet {
         ServletContext servletContext = getServletContext();
         servletContext.setAttribute("urlHashmapping", urlHashmapping);
         
+        System.out.println("Total mappings: " + urlHashmapping.size());
         System.out.println("=== FrontServlet Initialization Complete ===");
     }
 
@@ -58,99 +60,62 @@ public class FrontServlet extends HttpServlet {
         handleRequest(request, response);
     }
     
-    private void handleRequest(HttpServletRequest request, HttpServletResponse response) throws IOException {
+    @SuppressWarnings("unchecked")
+    private void handleRequest(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
         
-        response.setContentType("text/html;charset=UTF-8");
-        
-        // Get the URL the user typed
-        String fullURL = request.getRequestURL().toString();
-        
-        // Get the URI path
         String requestURI = request.getRequestURI();
-        
-        // Remove context path to get the application-specific path
         String contextPath = request.getContextPath();
         String path = requestURI.substring(contextPath.length());
         
-        // Retrieve the mapping from ServletContext
         ServletContext servletContext = getServletContext();
-        
-        @SuppressWarnings("unchecked")
         HashMap<String, Mapping> urlHashmapping = (HashMap<String, Mapping>) servletContext.getAttribute("urlHashmapping");
         
+        if (urlHashmapping != null && urlHashmapping.containsKey(path)) {
+            Mapping mapping = urlHashmapping.get(path);
+            
+            try {
+                Object controllerInstance = mapping.getControllerClass().getDeclaredConstructor().newInstance();
+                Object result = mapping.getMethod().invoke(controllerInstance);
+                
+                if (result instanceof ModelView) {
+                    ModelView mv = (ModelView) result;
+                    String viewName = mv.getView();
+                    if (!viewName.startsWith("/")) {
+                        viewName = "/" + viewName;
+                    }
+                    request.getRequestDispatcher(viewName).forward(request, response);
+                    
+                } else if (result instanceof String) {
+                    response.setContentType("text/html;charset=UTF-8");
+                    try (PrintWriter out = response.getWriter()) {
+                        out.println((String) result);
+                    }
+                    
+                } else {
+                    sendError(response, 500, "Unsupported return type: " + 
+                             (result != null ? result.getClass().getName() : "null"));
+                }
+                
+            } catch (Exception e) {
+                e.printStackTrace();
+                sendError(response, 500, "Error invoking method: " + e.getMessage());
+            }
+            
+        } else {
+            sendError(response, 404, "URL not found: " + path);
+        }
+    }
+
+    private void sendError(HttpServletResponse response, int statusCode, String message) throws IOException {
+        response.setStatus(statusCode);
+        response.setContentType("text/html;charset=UTF-8");
         try (PrintWriter out = response.getWriter()) {
             out.println("<!DOCTYPE html>");
-            out.println("<html>");
-            out.println("<head>");
-            out.println("    <title>Framework Front Controller</title>");
-            out.println("    <style>");
-            out.println("        body { font-family: Arial, sans-serif; margin: 40px; }");
-            out.println("        .info { background: #f0f8ff; padding: 20px; border-radius: 5px; margin-bottom: 20px; }");
-            out.println("        .mapping { background: #f0fff0; padding: 20px; border-radius: 5px; margin-bottom: 20px; }");
-            out.println("        .error { background: #fff0f0; padding: 20px; border-radius: 5px; }");
-            out.println("        .url { color: #0066cc; font-weight: bold; }");
-            out.println("        .success { color: #009900; }");
-            out.println("        .warning { color: #ff6600; }");
-            out.println("    </style>");
-            out.println("</head>");
+            out.println("<html><head><title>Error " + statusCode + "</title></head>");
             out.println("<body>");
-
-            // Check if URL is mapped
-            if (urlHashmapping != null && urlHashmapping.containsKey(path)) {
-                Mapping mapping = urlHashmapping.get(path);
-                
-                out.println("    <div class='mapping'>");
-                out.println("      <h2 class='success'>URL Mapped!</h2>");
-                out.println("        <p><strong>Requested URL:</strong> <span class='url'>" + path + "</span></p>");
-                out.println("        <p><strong>Controller:</strong> " + mapping.getControllerClass().getSimpleName() + "</p>");
-                out.println("        <p><strong>Method:</strong> " + mapping.getMethod().getName() + "()</p>");
-                out.println("        <p><strong>Full URL:</strong> " + fullURL + "</p>");
-                out.println("    </div>");
-                
-                //? Sprint 4: Invoke the method here
-                // try {
-                //     Object controllerInstance = mapping.getControllerClass().getDeclaredConstructor().newInstance();
-                //     Object result = mapping.getMethod().invoke(controllerInstance, request, response);
-                // } catch (Exception e) {
-                //     e.printStackTrace();
-                // }
-                
-            } else {
-                // URL not found - show 404
-                out.println("    <div class='error'>");
-                out.println("      <h2 class='warning'>404 - URL Not Found</h2>");
-                out.println("        <p><strong>Requested URL:</strong> <span class='url'>" + path + "</span></p>");
-                out.println("        <p>The URL you requested is not mapped to any controller method.</p>");
-                out.println("    </div>");
-                
-                // Show available URLs
-                if (urlHashmapping != null && !urlHashmapping.isEmpty()) {
-                    out.println("    <div class='info'>");
-                    out.println("      <h3>Available URLs:</h3>");
-                    out.println("      <ul>");
-                    for (String url : urlHashmapping.keySet()) {
-                        Mapping mapping = urlHashmapping.get(url);
-                        out.println("        <li><span class='url'>" + url + "</span> → " + 
-                                   mapping.getControllerClass().getSimpleName() + "." + 
-                                   mapping.getMethod().getName() + "()</li>");
-                    }
-                    out.println("      </ul>");
-                    out.println("    </div>");
-                }
-            }
-
-            // Request information section
-            out.println("    <div class='info'>");
-            out.println("      <h3>Request Information:</h3>");
-            out.println("        <p><strong>Full URL:</strong> " + fullURL + "</p>");
-            out.println("        <p><strong>Context Path:</strong> " + contextPath + "</p>");
-            out.println("        <p><strong>URI Path:</strong> " + requestURI + "</p>");
-            out.println("        <p><strong>Method:</strong> " + request.getMethod() + "</p>");
-            out.println("        <p><strong>Total Mappings:</strong> " + (urlHashmapping != null ? urlHashmapping.size() : 0) + "</p>");
-            out.println("    </div>");
-            
-            out.println("</body>");
-            out.println("</html>");
+            out.println("<h1>Error " + statusCode + "</h1>");
+            out.println("<p>" + message + "</p>");
+            out.println("</body></html>");
         }
     }
 }
