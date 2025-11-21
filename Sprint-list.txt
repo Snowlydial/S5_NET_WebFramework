@@ -78,19 +78,29 @@ In FS:
 When a url is received -> is it recognized?
 Check if there is an accolade in the cle of route...
 
-- 6 simple:
-Match name param with name variable in the view (dans request get paramater)
-I guess the param annotation you have to create it yourself...
-WF: Use request get param + reflection on the method associated to the url to check if the 
-name of getParam and the attribute in the method are the same
+- 6 simple: parameter through name matching
+Use request get param + reflection on the method associated to the url to check if the 
+name of the variable from the view (used getParam) and the parameter in the method are the same
 Reformulated:
-which says:
 "If the variable that contains the data in the view, has the same name as in the parameter for the method associated to the URL the page is requesting, then directly use that variable as a paramter for that function" which means as long as they match names in botht the view and in the controller's parameter name.
 In sprint 6 we can still use Request Get param and then reflection on the method associated to the url to get the name of the parameter (is that possible)?
 
-- 6 BIS
-they don't match name anymore fa misy request param
-WF: Still use getParam but with your own @AnotParam (to fix the issue of not same name anymore)
+- 6 BIS: name don't match anymore
+Create a new anotation AnotParam
+Reformulated: 
+Still use getParam but with your own @AnotParam (to fix the issue of not same name anymore)
 
-- 6 Tier
-make the {id} works
+- 6 Tier: 
+Make the {id} replacement work
+
+Sprint 7:
+Synopsis:
+Until now, we have "this method in controller is associated to this URL"
+Which means GET/POST etc shared that same method
+
+GET mapping
+POST mapping
+Request mapping
+
+Use of the http get type...or idk what's the name...
+
