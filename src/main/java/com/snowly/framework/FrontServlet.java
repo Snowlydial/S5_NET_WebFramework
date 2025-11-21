@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.lang.reflect.Method;
 
 import com.snowly.framework.Util.Mapping;
@@ -79,6 +80,13 @@ public class FrontServlet extends HttpServlet {
                 
                 if (result instanceof ModelView) {
                     ModelView mv = (ModelView) result;
+
+                    //?---- Add data for the view if any
+                    HashMap<String, Object> modelViewData = mv.getData();
+                    for(Map.Entry<String, Object> entry : modelViewData.entrySet()) {
+                        request.setAttribute(entry.getKey(), entry.getValue());
+                    }
+
                     String viewName = mv.getView();
                     if (!viewName.startsWith("/")) {
                         viewName = "/" + viewName;
