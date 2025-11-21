@@ -83,6 +83,10 @@ Match name param with name variable in the view (dans request get paramater)
 I guess the param annotation you have to create it yourself...
 WF: Use request get param + reflection on the method associated to the url to check if the 
 name of getParam and the attribute in the method are the same
+Reformulated:
+which says:
+"If the variable that contains the data in the view, has the same name as in the parameter for the method associated to the URL the page is requesting, then directly use that variable as a paramter for that function" which means as long as they match names in botht the view and in the controller's parameter name.
+In sprint 6 we can still use Request Get param and then reflection on the method associated to the url to get the name of the parameter (is that possible)?
 
 - 6 BIS
 they don't match name anymore fa misy request param
