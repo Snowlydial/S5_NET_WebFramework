@@ -5,6 +5,7 @@ import java.lang.reflect.Method;
 public class Mapping {
     private final Class<?> controllerClass;
     private final Method method;
+    private boolean hasPathParams;
 
     public Mapping(Class<?> _controClass, Method _method) {
         this.controllerClass = _controClass;
@@ -18,6 +19,15 @@ public class Mapping {
 
     public Method getMethod() {
         return method;
+    }
+
+    public boolean hasPathParams() {
+        return hasPathParams;
+    }
+
+    //?==== Setters
+    public void setHasPathParams(boolean hasPathParams) {
+        this.hasPathParams = hasPathParams;
     }
 
 }
