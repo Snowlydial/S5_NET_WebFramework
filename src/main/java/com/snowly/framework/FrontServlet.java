@@ -83,6 +83,9 @@ public class FrontServlet extends HttpServlet {
 
                     //?---- Add data for the view if any
                     HashMap<String, Object> modelViewData = mv.getData();
+                    if(modelViewData.isEmpty()) {
+                        System.out.println("!!!!!!! ModelView Data is EMPTY !!!!!!!");
+                    }
                     for(Map.Entry<String, Object> entry : modelViewData.entrySet()) {
                         request.setAttribute(entry.getKey(), entry.getValue());
                     }
