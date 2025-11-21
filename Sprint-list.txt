@@ -60,3 +60,33 @@ Sprint 4 bis:
     Test if calling associated url in the controller shows/render the test.jsp
 
     In test check return value 
+
+FIXES to do before next sprints:
+3 BIS
+Make accolade be supported
+
+Sprint 5:
+Create a hashmap data <String, Object> in modelView
+Create a addData method that adds to that hashmap
+In test-project, try passing data from controller to the view 
+
+Sprint 6:
+Keep in mind:
+everything/any operation pass through frontservlet (FS): view <-> FS <-> controller
+
+In FS:
+When a url is received -> is it recognized?
+Check if there is an accolade in the cle of route...
+
+- 6 simple:
+Match name param with name variable in the view (dans request get paramater)
+I guess the param annotation you have to create it yourself...
+WF: Use request get param + reflection on the method associated to the url to check if the 
+name of getParam and the attribute in the method are the same
+
+- 6 BIS
+they don't match name anymore fa misy request param
+WF: Still use getParam but with your own @AnotParam (to fix the issue of not same name anymore)
+
+- 6 Tier
+make the {id} works
