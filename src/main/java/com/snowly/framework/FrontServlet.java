@@ -37,8 +37,13 @@ public class FrontServlet extends HttpServlet {
                     AnotURL urlAnnot = method.getAnnotation(AnotURL.class);
                     String methodPath = urlAnnot.value();
                     String fullUrl = basePath + methodPath;
-                    Mapping classAndMethod = new Mapping(controllerClass, method);
-                    urlHashmapping.put(fullUrl, classAndMethod);
+
+                    //?==== Start Sprint3_BIS_Accolade_Support
+                    Mapping mapping = new Mapping(controllerClass, method);
+                    mapping.setHasPathParams(methodPath.contains("{") && methodPath.contains("}"));
+                    //?==== End Sprint3_BIS_Accolade_Support
+
+                    urlHashmapping.put(fullUrl, mapping);
                     System.out.println("Mapped: " + fullUrl + " -> " + controllerClass.getSimpleName() + "." + method.getName());
                 }
             }
