@@ -9,12 +9,12 @@ public class Mapping {
     private final Class<?> controllerClass;
     private final Method method;
     private boolean hasPathParams;
-    private Map<String, Class<?>> parameterTypes;
+    private Map<String, Class<?>> parameterList;
 
     public Mapping(Class<?> _controClass, Method _method) {
         this.controllerClass = _controClass;
         this.method = _method;
-        this.parameterTypes = new HashMap<>();
+        this.parameterList = new HashMap<>();
         
         for(Parameter param : _method.getParameters()) {
             parameterTypes.put(param.getName(), param.getType());
@@ -34,8 +34,8 @@ public class Mapping {
         return hasPathParams;
     }
     
-    public Map<String, Class<?>> getParameterTypes() {
-        return parameterTypes;
+    public Map<String, Class<?>> getParameterList() {
+        return parameterList;
     }
 
     //?=== Setters
