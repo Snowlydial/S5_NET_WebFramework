@@ -17,6 +17,8 @@ import com.snowly.framework.Annotations.AnotController;
 import com.snowly.framework.Annotations.AnotURL;
 import com.snowly.framework.Util.ControllerScanner;
 import com.snowly.framework.Util.ModelView;
+import org.apache.commons.lang3.ClassUtils;
+import org.apache.commons.lang3.math.NumberUtils;
 
 public class FrontServlet extends HttpServlet {
     
@@ -37,8 +39,13 @@ public class FrontServlet extends HttpServlet {
                     AnotURL urlAnnot = method.getAnnotation(AnotURL.class);
                     String methodPath = urlAnnot.value();
                     String fullUrl = basePath + methodPath;
-                    Mapping classAndMethod = new Mapping(controllerClass, method);
-                    urlHashmapping.put(fullUrl, classAndMethod);
+
+                    //?==== Start Sprint3_BIS_Accolade_Support
+                    Mapping mapping = new Mapping(controllerClass, method);
+                    mapping.setHasPathParams(methodPath.contains("{") && methodPath.contains("}"));
+                    //?==== End Sprint3_BIS_Accolade_Support
+
+                    urlHashmapping.put(fullUrl, mapping);
                     System.out.println("Mapped: " + fullUrl + " -> " + controllerClass.getSimpleName() + "." + method.getName());
                 }
             }
@@ -76,16 +83,20 @@ public class FrontServlet extends HttpServlet {
             
             try {
                 Object controllerInstance = mapping.getControllerClass().getDeclaredConstructor().newInstance();
-                Object result = mapping.getMethod().invoke(controllerInstance);
+                
+                Object[] args = prepareMethodArguments(request, mapping);
+                
+                Object result = mapping.getMethod().invoke(controllerInstance, args);
                 
                 if (result instanceof ModelView) {
                     ModelView mv = (ModelView) result;
 
-                    //?---- Add data for the view if any
+                    //?---- SP5: Add data for the view if any
                     HashMap<String, Object> modelViewData = mv.getData();
                     if(modelViewData.isEmpty()) {
                         System.out.println("!!!!!!! ModelView Data is EMPTY !!!!!!!");
                     }
+
                     for(Map.Entry<String, Object> entry : modelViewData.entrySet()) {
                         request.setAttribute(entry.getKey(), entry.getValue());
                     }
@@ -115,6 +126,35 @@ public class FrontServlet extends HttpServlet {
         } else {
             sendError(response, 404, "URL not found: " + path);
         }
+    }
+
+    //?==== SP6: Simple Param Name Matching
+    private Object[] prepareMethodArguments(HttpServletRequest request, Mapping mapping) {
+        Map<String, Class<?>> paramTypes = mapping.getParameterTypes();
+        Object[] args = new Object[paramTypes.size()];
+        int i = 0;
+        
+        /* NB: About the foreach syntax below
+            * map.entryset returns a set of all key-value pairs
+            * since maps store pairs, we need to itterate on "entries" 
+            * Map.Entry represent one key-value pair
+        */
+        for(Map.Entry<String, Class<?>> entry : paramTypes.entrySet()) {
+            String paramName = entry.getKey();
+            Class<?> paramType = entry.getValue();
+            String paramValue = request.getParameter(paramName);
+            
+            if(paramValue != null) {
+                //*---- Conversion happenning
+                args[i] = ClassUtils.isPrimitiveOrWrapper(paramType) 
+                    ? NumberUtils.createNumber(paramValue) 
+                    : paramValue;
+            } else {
+                System.out.println("WARNING: Parameter '" + paramName + "' is null");
+            }
+            i++;
+        }
+        return args;
     }
 
     private void sendError(HttpServletResponse response, int statusCode, String message) throws IOException {
