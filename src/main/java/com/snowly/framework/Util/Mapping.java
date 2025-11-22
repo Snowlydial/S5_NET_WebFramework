@@ -5,6 +5,8 @@ import java.lang.reflect.Parameter;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.snowly.framework.Annotations.AnotParam;
+
 public class Mapping {
     private final Class<?> controllerClass;
     private final Method method;
@@ -16,8 +18,21 @@ public class Mapping {
         this.method = _method;
         this.parameterList = new HashMap<>();
         
-        for(Parameter param : _method.getParameters()) {
-            parameterTypes.put(param.getName(), param.getType());
+        Parameter[] params = _method.getParameters();
+        for(int i = 0; i < params.length; i++) {
+            Parameter param = params[i];
+            String requestParamName;
+
+            if(param.isAnnotationPresent(AnotParam.class)) {
+                //?=== SP6_BIS_Support diffNaming - Use @AnotParam
+                AnotParam anotParam = param.getAnnotation(AnotParam.class);
+                requestParamName = anotParam.value();
+            } else {
+                //?=== SP6_Simple: Param Name Matching
+                requestParamName = param.getName();
+            }
+            
+            parameterList.put(requestParamName, param.getType());
         }
     }
 
