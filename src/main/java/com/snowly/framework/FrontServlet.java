@@ -128,10 +128,10 @@ public class FrontServlet extends HttpServlet {
         }
     }
 
-    //?==== SP6: Simple Param Name Matching
+    //?==== SP6: 
     private Object[] prepareMethodArguments(HttpServletRequest request, Mapping mapping) {
-        Map<String, Class<?>> paramTypes = mapping.getParameterTypes();
-        Object[] args = new Object[paramTypes.size()];
+        Map<String, Class<?>> paramList = mapping.getParameterList();
+        Object[] args = new Object[paramList.size()];
         int i = 0;
         
         /* NB: About the foreach syntax below
@@ -139,10 +139,10 @@ public class FrontServlet extends HttpServlet {
             * since maps store pairs, we need to itterate on "entries" 
             * Map.Entry represent one key-value pair
         */
-        for(Map.Entry<String, Class<?>> entry : paramTypes.entrySet()) {
+        for(Map.Entry<String, Class<?>> entry : paramList.entrySet()) {
             String paramName = entry.getKey();
             Class<?> paramType = entry.getValue();
-            String paramValue = request.getParameter(paramName);
+            String paramValue = request.getParameter(paramName); // name matching
             
             if(paramValue != null) {
                 //*---- Conversion happenning
