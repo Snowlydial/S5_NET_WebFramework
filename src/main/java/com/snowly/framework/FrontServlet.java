@@ -17,6 +17,8 @@ import com.snowly.framework.Annotations.AnotController;
 import com.snowly.framework.Annotations.AnotURL;
 import com.snowly.framework.Util.ControllerScanner;
 import com.snowly.framework.Util.ModelView;
+import org.apache.commons.lang3.ClassUtils;
+import org.apache.commons.lang3.math.NumberUtils;
 
 public class FrontServlet extends HttpServlet {
     
@@ -81,7 +83,36 @@ public class FrontServlet extends HttpServlet {
             
             try {
                 Object controllerInstance = mapping.getControllerClass().getDeclaredConstructor().newInstance();
-                Object result = mapping.getMethod().invoke(controllerInstance);
+                
+                //?==== SP6: Simple Param Name Matching
+                Map<String, Class<?>> paramTypes = mapping.getParameterTypes();
+                Object[] args = new Object[paramTypes.size()];
+                int i = 0;
+                
+                /* NB: About the foreach syntax below
+                    * map.entryset returns a set of all key-value pairs
+                    * since maps store pairs, we need to itterate on "entries" 
+                    * Map.Entry represent one key-value pair
+                */
+                for(Map.Entry<String, Class<?>> entry : paramTypes.entrySet()) {
+                    String paramName = entry.getKey();
+                    Class<?> paramType = entry.getValue();
+                    String paramValue = request.getParameter(paramName);
+                    // System.out.println("Parameter '" + paramName + "' value: " + paramValue + " (type: " + paramType.getSimpleName() + ")");
+                    
+                    if(paramValue != null) {
+                        //*---- Conversion happenning
+                        args[i] = ClassUtils.isPrimitiveOrWrapper(paramType) 
+                            ? NumberUtils.createNumber(paramValue) 
+                            : paramValue;
+                    } else {
+                        System.out.println("WARNING: Parameter '" + paramName + "' is null");
+                    }
+
+                    i++;
+                }
+                
+                Object result = mapping.getMethod().invoke(controllerInstance, args);
                 
                 if (result instanceof ModelView) {
                     ModelView mv = (ModelView) result;
