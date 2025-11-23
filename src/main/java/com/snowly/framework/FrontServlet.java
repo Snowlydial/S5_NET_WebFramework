@@ -42,11 +42,20 @@ public class FrontServlet extends HttpServlet {
 
                     //?==== Start Sprint3_BIS_Accolade_Support
                     Mapping mapping = new Mapping(controllerClass, method);
-                    mapping.setHasPathParams(methodPath.contains("{") && methodPath.contains("}"));
+                    boolean hasPathParams = methodPath.contains("{") && methodPath.contains("}");
+                    mapping.setHasPathParams(hasPathParams);
                     //?==== End Sprint3_BIS_Accolade_Support
 
+                    //?==== START SP6_Ter ====
+                    if (hasPathParams) {
+                        mapping.buildUrlPattern(fullUrl);
+                        System.out.println("Mapped (with path params): " + fullUrl + " -> " + controllerClass.getSimpleName() + "." + method.getName());
+                    } else {
+                        System.out.println("Mapped: " + fullUrl + " -> " + controllerClass.getSimpleName() + "." + method.getName());
+                    }
+                    //?==== END SP6_Ter ====
+
                     urlHashmapping.put(fullUrl, mapping);
-                    System.out.println("Mapped: " + fullUrl + " -> " + controllerClass.getSimpleName() + "." + method.getName());
                 }
             }
         }
@@ -78,13 +87,30 @@ public class FrontServlet extends HttpServlet {
         ServletContext servletContext = getServletContext();
         HashMap<String, Mapping> urlHashmapping = (HashMap<String, Mapping>) servletContext.getAttribute("urlHashmapping");
         
+        Mapping mapping = null;
+        Map<String, String> pathParams = new HashMap<>();
+
+        //?--- SP6_Ter Change: Try exact match
         if (urlHashmapping != null && urlHashmapping.containsKey(path)) {
-            Mapping mapping = urlHashmapping.get(path);
-            
+            mapping = urlHashmapping.get(path);
+        } else { //?--- Try pattern matching
+            for (Map.Entry<String, Mapping> entry : urlHashmapping.entrySet()) {
+                Mapping candidate = entry.getValue();
+                if (candidate.hasPathParams() && candidate.matchesUrl(path)) {
+                    mapping = candidate;
+                    pathParams = candidate.extractPathParams(path);
+                    System.out.println("Matched pattern: " + candidate.getOriginalUrl() + " with params: " + pathParams);
+                    break;
+                }
+            }
+        }
+
+        if (mapping != null) {
             try {
                 Object controllerInstance = mapping.getControllerClass().getDeclaredConstructor().newInstance();
                 
-                Object[] args = prepareMethodArguments(request, mapping);
+                //?=== SP6_Ter: Merging regular params + path params
+                Object[] args = prepareMethodArgumentsWithPathParams(request, mapping, pathParams);
                 
                 Object result = mapping.getMethod().invoke(controllerInstance, args);
                 
@@ -146,6 +172,39 @@ public class FrontServlet extends HttpServlet {
             
             if(paramValue != null) {
                 //*---- Conversion happenning
+                args[i] = ClassUtils.isPrimitiveOrWrapper(paramType) 
+                    ? NumberUtils.createNumber(paramValue) 
+                    : paramValue;
+            } else {
+                System.out.println("WARNING: Parameter '" + paramName + "' is null");
+            }
+            i++;
+        }
+        return args;
+    }
+
+    //?==== SP6_Ter: Wrapper that handles path params + regular params
+    private Object[] prepareMethodArgumentsWithPathParams(HttpServletRequest request, Mapping mapping, Map<String, String> pathParams) {
+        if (pathParams == null || pathParams.isEmpty()) {
+            return prepareMethodArguments(request, mapping);
+        }
+        
+        Map<String, Class<?>> paramList = mapping.getParameterList();
+        Object[] args = new Object[paramList.size()];
+        int i = 0;
+        
+        for(Map.Entry<String, Class<?>> entry : paramList.entrySet()) {
+            String paramName = entry.getKey();
+            Class<?> paramType = entry.getValue();
+            String paramValue = null;
+            
+            if (pathParams.containsKey(paramName)) { 
+                paramValue = pathParams.get(paramName); // use name from pathVariable first
+            } else {
+                paramValue = request.getParameter(paramName);  // use name from paramAnotName or paramMethodName
+            }
+            
+            if(paramValue != null) {
                 args[i] = ClassUtils.isPrimitiveOrWrapper(paramType) 
                     ? NumberUtils.createNumber(paramValue) 
                     : paramValue;
