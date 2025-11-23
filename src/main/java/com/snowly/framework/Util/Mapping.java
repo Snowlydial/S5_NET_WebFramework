@@ -4,6 +4,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -24,7 +25,7 @@ public class Mapping {
     public Mapping(Class<?> _controClass, Method _method) {
         this.controllerClass = _controClass;
         this.method = _method;
-        this.parameterList = new HashMap<>();
+        this.parameterList = new LinkedHashMap<>();
         this.pathParamNames = new ArrayList<>();
         
         Parameter[] params = _method.getParameters();
