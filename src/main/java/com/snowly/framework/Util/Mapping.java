@@ -22,6 +22,9 @@ public class Mapping {
     private ArrayList<String> pathParamNames;
     private String originalUrl;
 
+    //?==== SP7: HTTP Method:
+    private String httpMethod;
+
     public Mapping(Class<?> _controClass, Method _method) {
         this.controllerClass = _controClass;
         this.method = _method;
@@ -130,8 +133,16 @@ public class Mapping {
         return originalUrl;
     }
 
+    public String getHttpMethod() {
+        return httpMethod;
+    }
+
     //?=== Setters
     public void setHasPathParams(boolean hasPathParams) {
         this.hasPathParams = hasPathParams;
+    }
+
+    public void setHttpMethod(String httpMethod) {
+        this.httpMethod = httpMethod;
     }
 }
