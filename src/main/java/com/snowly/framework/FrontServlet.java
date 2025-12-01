@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +16,9 @@ import java.lang.reflect.Method;
 import com.snowly.framework.Util.Mapping;
 import com.snowly.framework.Annotations.AnotController;
 import com.snowly.framework.Annotations.AnotURL;
+import com.snowly.framework.Annotations.HTTP_Methods.AnotGetMapping;
+import com.snowly.framework.Annotations.HTTP_Methods.AnotPostMapping;
+import com.snowly.framework.Annotations.HTTP_Methods.AnotRequestMapping;
 import com.snowly.framework.Util.ControllerScanner;
 import com.snowly.framework.Util.ModelView;
 import org.apache.commons.lang3.ClassUtils;
@@ -26,8 +30,7 @@ public class FrontServlet extends HttpServlet {
     public void init() throws ServletException {
         super.init();
         System.out.println("=== Initializing FrontServlet ===");
-        
-        HashMap<String, Mapping> urlHashmapping = new HashMap<>();
+        HashMap<String, List<Mapping>> urlHashmapping = new HashMap<>();
         
         List<Class<?>> controllers = ControllerScanner.scanForControllers();
         for(Class<?> controllerClass : controllers) {
@@ -35,27 +38,37 @@ public class FrontServlet extends HttpServlet {
             String basePath = controllerAnnot.value();
             
             for (Method method : controllerClass.getDeclaredMethods()) {
-                if (method.isAnnotationPresent(AnotURL.class)) {
-                    AnotURL urlAnnot = method.getAnnotation(AnotURL.class);
-                    String methodPath = urlAnnot.value();
-                    String fullUrl = basePath + methodPath;
-
-                    //?==== Start Sprint3_BIS_Accolade_Support
-                    Mapping mapping = new Mapping(controllerClass, method);
-                    boolean hasPathParams = methodPath.contains("{") && methodPath.contains("}");
-                    mapping.setHasPathParams(hasPathParams);
-                    //?==== End Sprint3_BIS_Accolade_Support
-
-                    //?==== START SP6_Ter ====
-                    if (hasPathParams) {
-                        mapping.buildUrlPattern(fullUrl);
-                        System.out.println("Mapped (with path params): " + fullUrl + " -> " + controllerClass.getSimpleName() + "." + method.getName());
-                    } else {
-                        System.out.println("Mapped: " + fullUrl + " -> " + controllerClass.getSimpleName() + "." + method.getName());
+                //?==== SP7: Method Paths
+                String methodPath = null;
+                String httpMethod = null;
+                if (method.isAnnotationPresent(AnotGetMapping.class)) {
+                    methodPath = method.getAnnotation(AnotGetMapping.class).value();
+                    httpMethod = "GET";
+                } else if (method.isAnnotationPresent(AnotPostMapping.class)) {
+                    methodPath = method.getAnnotation(AnotPostMapping.class).value();
+                    httpMethod = "POST";
+                } else if (method.isAnnotationPresent(AnotRequestMapping.class)) {
+                    AnotRequestMapping reqMapping = method.getAnnotation(AnotRequestMapping.class);
+                    methodPath = reqMapping.value();
+                    String[] methods = reqMapping.method();
+                    
+                    if (methods.length == 0) { // If no methods specified, default to ALL methods
+                        httpMethod = "ALL";
+                    } else { // For multiple methods, create separate mappings
+                        for (String m : methods) {
+                            addMapping(urlHashmapping, basePath, methodPath, m, controllerClass, method);
+                        }
+                        continue; // Skip the single mapping below
                     }
-                    //?==== END SP6_Ter ====
-
-                    urlHashmapping.put(fullUrl, mapping);
+                }
+                //*------- FallBack to old @AnotURL
+                else if (method.isAnnotationPresent(AnotURL.class)) {
+                    methodPath = method.getAnnotation(AnotURL.class).value();
+                    httpMethod = "ALL"; // Accept both GET and POST
+                }
+                
+                if (methodPath != null) {
+                    addMapping(urlHashmapping, basePath, methodPath, httpMethod, controllerClass, method);
                 }
             }
         }
@@ -65,6 +78,31 @@ public class FrontServlet extends HttpServlet {
         
         System.out.println("Total mappings: " + urlHashmapping.size());
         System.out.println("=== FrontServlet Initialization Complete ===");
+    }
+
+    // Helper method to add mappings
+    private void addMapping(HashMap<String, List<Mapping>> urlHashmapping, String basePath, String methodPath, String httpMethod, Class<?> controllerClass, Method method) {
+        String fullUrl = basePath + methodPath;
+        
+        Mapping mapping = new Mapping(controllerClass, method);
+        mapping.setHttpMethod(httpMethod);
+
+        //?==== Start Sprint3_BIS_Accolade_Support
+        boolean hasPathParams = methodPath.contains("{") && methodPath.contains("}");
+        mapping.setHasPathParams(hasPathParams);
+        //?==== End Sprint3_BIS_Accolade_Support
+        
+        //?==== START SP6_Ter ====
+        if (hasPathParams) {
+            mapping.buildUrlPattern(fullUrl);
+            System.out.println("Mapped (" + httpMethod + " with path params): " + fullUrl + " -> " + controllerClass.getSimpleName() + "." + method.getName());
+        } else {
+            System.out.println("Mapped (" + httpMethod + "): " + fullUrl + " -> " + controllerClass.getSimpleName() + "." + method.getName());
+        }
+        //?==== END SP6_Ter ====
+        
+        // Add to list of mappings for this URL
+        urlHashmapping.computeIfAbsent(fullUrl, k -> new ArrayList<>()).add(mapping);
     }
 
     @Override
@@ -83,25 +121,39 @@ public class FrontServlet extends HttpServlet {
         String requestURI = request.getRequestURI();
         String contextPath = request.getContextPath();
         String path = requestURI.substring(contextPath.length());
+
+        //?--- SP7: GET, POST, etc.
+        String requestMethod = request.getMethod();
         
         ServletContext servletContext = getServletContext();
-        HashMap<String, Mapping> urlHashmapping = (HashMap<String, Mapping>) servletContext.getAttribute("urlHashmapping");
+        HashMap<String, List<Mapping>> urlHashmapping = (HashMap<String, List<Mapping>>) servletContext.getAttribute("urlHashmapping");
         
         Mapping mapping = null;
         Map<String, String> pathParams = new HashMap<>();
 
         //?--- SP6_Ter Change: Try exact match
         if (urlHashmapping != null && urlHashmapping.containsKey(path)) {
-            mapping = urlHashmapping.get(path);
-        } else { //?--- Try pattern matching
-            for (Map.Entry<String, Mapping> entry : urlHashmapping.entrySet()) {
-                Mapping candidate = entry.getValue();
-                if (candidate.hasPathParams() && candidate.matchesUrl(path)) {
-                    mapping = candidate;
-                    pathParams = candidate.extractPathParams(path);
-                    System.out.println("Matched pattern: " + candidate.getOriginalUrl() + " with params: " + pathParams);
-                    break;
+            List<Mapping> candidates = urlHashmapping.get(path);
+            mapping = findMatchingMapping(candidates, requestMethod);
+        }
+        //?--- SP6_Ter Change: Try pattern matching
+        if (mapping == null) {
+            for (Map.Entry<String, List<Mapping>> entry : urlHashmapping.entrySet()) {
+                List<Mapping> candidates = entry.getValue();
+                
+                for (Mapping candidate : candidates) {
+                    if (candidate.hasPathParams() && candidate.matchesUrl(path)) {
+                        //?--- SP7: Check if HTTP method from View and inside the mapping matches
+                        if (candidate.getHttpMethod().equals("ALL") || candidate.getHttpMethod().equals(requestMethod)) {
+                            mapping = candidate;
+                            pathParams = candidate.extractPathParams(path);
+                            System.out.println("Matched pattern (" + requestMethod + "): " + candidate.getOriginalUrl() + " with params: " + pathParams);
+                            break;
+                        }
+                    }
                 }
+                
+                if (mapping != null) break;
             }
         }
 
@@ -214,6 +266,17 @@ public class FrontServlet extends HttpServlet {
             i++;
         }
         return args;
+    }
+
+    //?==== SP7_Helper: Find mapping that matches the HTTP method
+    private Mapping findMatchingMapping(List<Mapping> candidates, String requestMethod) {
+        for (Mapping candidate : candidates) {
+            if (candidate.getHttpMethod().equals("ALL") || 
+                candidate.getHttpMethod().equals(requestMethod)) {
+                return candidate;
+            }
+        }
+        return null;
     }
 
     private void sendError(HttpServletResponse response, int statusCode, String message) throws IOException {

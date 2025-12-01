@@ -94,7 +94,7 @@ Still use getParam but with your own @AnotParam (to fix the issue of not same na
 Make the {id} replacement work
 
 Sprint 7:
-Synopsis:
+- Synopsis:
 Until now, we have "this method in controller is associated to this URL"
 Which means GET/POST etc shared that same method
 
@@ -104,3 +104,22 @@ Request mapping
 
 Use of the http get type...or idk what's the name...
 
+- Sol:
+    - Add new anotations for each HttpMethod
+    - Our previous hashmap<string, Mapping> becomes hashmap<string, list<Mapping>>
+    - instead of 1 classmethod(aka Mapping), we have a list
+    - We have one url to M1 associated to GET, same url to M2 but POST
+    -> add attribute HttpMethod in the Mapping
+    
+    Always check the httpMethod when scanning the supportedURL.
+    Checking if URL exist in the map doesn't suffice anymore, need to look at the HttpMethod
+
+Sprint 8: suite of sprint 6
+- Process this case: if there is a var Map<String, Object> in the method associated to the URL
+In FS, we have a URL associated to a meth using a map in it, that map is null 
+We have to populate it, retrieving the key + the list(request.getParametervalues) with a loop
+
+Instead of sending the object request in the function/method, pass a copy instead.
+
+Actually the req.getParameterValues might not be the ideal function, we are talking about a function
+that can retrieve all the stuff in the form: req.getParameterMap
