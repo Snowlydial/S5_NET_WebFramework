@@ -123,3 +123,16 @@ Instead of sending the object request in the function/method, pass a copy instea
 
 Actually the req.getParameterValues might not be the ideal function, we are talking about a function
 that can retrieve all the stuff in the form: req.getParameterMap
+
+In any case, all the values in the view/form put inside a map if the Method uses a map.
+
+SP8_BIS:
+We have the form with checkbox
+Form pour creer EMP -> Methd d'action (ex: Save(EMP))
+    - If there is another object in the argument (Ex: Save(Emp, Dept))
+    - There is an object in the attribute of another (Ex: EMP {name, birthday, dept})
+
+If those case, get the attribute of those obj and create the obj instance to use
+Match(same name match like before) + type Casting => Do some Bindings (from param -> create the object; in any case the casting is still important)
+
+GOAL: get instance of the object ready to be used in the method d'action
