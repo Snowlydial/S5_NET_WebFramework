@@ -121,25 +121,39 @@ public class FrontServlet extends HttpServlet {
         String requestURI = request.getRequestURI();
         String contextPath = request.getContextPath();
         String path = requestURI.substring(contextPath.length());
+
+        //?--- SP7: GET, POST, etc.
+        String requestMethod = request.getMethod();
         
         ServletContext servletContext = getServletContext();
-        HashMap<String, Mapping> urlHashmapping = (HashMap<String, Mapping>) servletContext.getAttribute("urlHashmapping");
+        HashMap<String, List<Mapping>> urlHashmapping = (HashMap<String, List<Mapping>>) servletContext.getAttribute("urlHashmapping");
         
         Mapping mapping = null;
         Map<String, String> pathParams = new HashMap<>();
 
         //?--- SP6_Ter Change: Try exact match
         if (urlHashmapping != null && urlHashmapping.containsKey(path)) {
-            mapping = urlHashmapping.get(path);
-        } else { //?--- Try pattern matching
-            for (Map.Entry<String, Mapping> entry : urlHashmapping.entrySet()) {
-                Mapping candidate = entry.getValue();
-                if (candidate.hasPathParams() && candidate.matchesUrl(path)) {
-                    mapping = candidate;
-                    pathParams = candidate.extractPathParams(path);
-                    System.out.println("Matched pattern: " + candidate.getOriginalUrl() + " with params: " + pathParams);
-                    break;
+            List<Mapping> candidates = urlHashmapping.get(path);
+            mapping = findMatchingMapping(candidates, requestMethod);
+        }
+        //?--- SP6_Ter Change: Try pattern matching
+        if (mapping == null) {
+            for (Map.Entry<String, List<Mapping>> entry : urlHashmapping.entrySet()) {
+                List<Mapping> candidates = entry.getValue();
+                
+                for (Mapping candidate : candidates) {
+                    if (candidate.hasPathParams() && candidate.matchesUrl(path)) {
+                        //?--- SP7: Check if HTTP method from View and inside the mapping matches
+                        if (candidate.getHttpMethod().equals("ALL") || candidate.getHttpMethod().equals(requestMethod)) {
+                            mapping = candidate;
+                            pathParams = candidate.extractPathParams(path);
+                            System.out.println("Matched pattern (" + requestMethod + "): " + candidate.getOriginalUrl() + " with params: " + pathParams);
+                            break;
+                        }
+                    }
                 }
+                
+                if (mapping != null) break;
             }
         }
 
@@ -252,6 +266,17 @@ public class FrontServlet extends HttpServlet {
             i++;
         }
         return args;
+    }
+
+    //?==== SP7_Helper: Find mapping that matches the HTTP method
+    private Mapping findMatchingMapping(List<Mapping> candidates, String requestMethod) {
+        for (Mapping candidate : candidates) {
+            if (candidate.getHttpMethod().equals("ALL") || 
+                candidate.getHttpMethod().equals(requestMethod)) {
+                return candidate;
+            }
+        }
+        return null;
     }
 
     private void sendError(HttpServletResponse response, int statusCode, String message) throws IOException {
