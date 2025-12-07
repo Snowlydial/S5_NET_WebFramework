@@ -81,6 +81,19 @@ public class FrontServlet extends HttpServlet {
         System.out.println("=== FrontServlet Initialization Complete ===");
     }
 
+    private void sendError(HttpServletResponse response, int statusCode, String message) throws IOException {
+        response.setStatus(statusCode);
+        response.setContentType("text/html;charset=UTF-8");
+        try (PrintWriter out = response.getWriter()) {
+            out.println("<!DOCTYPE html>");
+            out.println("<html><head><title>Error " + statusCode + "</title></head>");
+            out.println("<body>");
+            out.println("<h1>Error " + statusCode + "</h1>");
+            out.println("<p>" + message + "</p>");
+            out.println("</body></html>");
+        }
+    }
+
     // Helper method to add mappings
     private void addMapping(HashMap<String, List<Mapping>> urlHashmapping, String basePath, String methodPath, String httpMethod, Class<?> controllerClass, Method method) {
         String fullUrl = basePath + methodPath;
@@ -282,16 +295,6 @@ public class FrontServlet extends HttpServlet {
         return null;
     }
 
-    private void sendError(HttpServletResponse response, int statusCode, String message) throws IOException {
-        response.setStatus(statusCode);
-        response.setContentType("text/html;charset=UTF-8");
-        try (PrintWriter out = response.getWriter()) {
-            out.println("<!DOCTYPE html>");
-            out.println("<html><head><title>Error " + statusCode + "</title></head>");
-            out.println("<body>");
-            out.println("<h1>Error " + statusCode + "</h1>");
-            out.println("<p>" + message + "</p>");
-            out.println("</body></html>");
     //?==== SP8: Create Map from ALL request parameters
     private Map<String, Object> createMapFromRequest(HttpServletRequest request, Map<String, String> pathParams) {
         Map<String, Object> resultMap = new HashMap<>();
