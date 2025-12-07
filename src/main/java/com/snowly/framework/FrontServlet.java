@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.lang.reflect.Method;
+import java.lang.reflect.Field;
 
 import com.snowly.framework.Util.Mapping;
 import com.snowly.framework.Annotations.AnotController;
@@ -117,7 +118,6 @@ public class FrontServlet extends HttpServlet {
     
     @SuppressWarnings("unchecked")
     private void handleRequest(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
-        
         String requestURI = request.getRequestURI();
         String contextPath = request.getContextPath();
         String path = requestURI.substring(contextPath.length());
@@ -161,9 +161,12 @@ public class FrontServlet extends HttpServlet {
             try {
                 Object controllerInstance = mapping.getControllerClass().getDeclaredConstructor().newInstance();
                 
-                //?=== SP6_Ter: Merging regular params + path params
-                Object[] args = prepareMethodArgumentsWithPathParams(request, mapping, pathParams);
+                // SP6_Ter: Merging regular params + path params
+                // Object[] args = prepareMethodArgumentsWithPathParams(request, mapping, pathParams);
                 
+                //?=== SP8 & SP8_BIS: Prepare arguments with Map and Object binding support
+                Object[] args = prepareMethodArgumentsWithBinding(request, mapping, pathParams);
+
                 Object result = mapping.getMethod().invoke(controllerInstance, args);
                 
                 if (result instanceof ModelView) {
@@ -289,6 +292,158 @@ public class FrontServlet extends HttpServlet {
             out.println("<h1>Error " + statusCode + "</h1>");
             out.println("<p>" + message + "</p>");
             out.println("</body></html>");
+    //?==== SP8: Create Map from ALL request parameters
+    private Map<String, Object> createMapFromRequest(HttpServletRequest request, Map<String, String> pathParams) {
+        Map<String, Object> resultMap = new HashMap<>();
+        
+        //*--- Add all path parameters
+        resultMap.putAll(pathParams);
+        
+        //*--- Add all request parameters
+        Map<String, String[]> allParams = request.getParameterMap();
+        for (Map.Entry<String, String[]> entry : allParams.entrySet()) {
+            String key = entry.getKey();
+            String[] values = entry.getValue();
+            
+            // If multiple values (checkboxes), store as array; otherwise store single value
+            if (values.length == 1) {
+                resultMap.put(key, values[0]);
+            } else {
+                resultMap.put(key, values);
+            }
         }
+        
+        System.out.println("Created Map with " + resultMap.size() + " entries: " + resultMap.keySet());
+        return resultMap;
+    }
+
+    //?==== SP8_BIS: Check if type is a custom object (not primitive/wrapper/String)
+    private boolean isCustomObject(Class<?> type) {
+        return !type.isPrimitive() 
+            && !ClassUtils.isPrimitiveWrapper(type)
+            && !type.equals(String.class)
+            && !Map.class.isAssignableFrom(type);
+    }
+
+    //?==== SP8_BIS: Create object instance from request parameters
+    private Object createObjectFromRequest(Class<?> objectType, Map<String, String[]> allParams, String objectPrefix) {
+        try {
+            // Create instance of the object
+            Object instance = objectType.getDeclaredConstructor().newInstance();
+            
+            // Get all fields of the object
+            Field[] fields = objectType.getDeclaredFields();
+            
+            for (Field field : fields) {
+                field.setAccessible(true);
+                String fieldName = field.getName();
+                Class<?> fieldType = field.getType();
+                
+                // Look for parameter with pattern: objectPrefix.fieldName or just fieldName
+                String paramKey = objectPrefix + "." + fieldName;
+                String[] paramValues = allParams.get(paramKey);
+                
+                // If not found with prefix, try without prefix
+                if (paramValues == null) {
+                    paramValues = allParams.get(fieldName);
+                }
+                
+                if (paramValues != null && paramValues.length > 0) {
+                    String paramValue = paramValues[0];
+                    
+                    // Check if field is itself a custom object (nested)
+                    if (isCustomObject(fieldType)) {
+                        Object nestedObject = createObjectFromRequest(fieldType, allParams, paramKey);
+                        field.set(instance, nestedObject);
+                    } else {
+                        // Convert and set primitive/String value
+                        Object convertedValue = convertParameterType(paramValue, fieldType);
+                        field.set(instance, convertedValue);
+                    }
+                    
+                    System.out.println("Set " + objectType.getSimpleName() + "." + fieldName + " = " + paramValue);
+                }
+            }
+            
+            return instance;
+            
+        } catch (Exception e) {
+            System.err.println("Error creating object of type " + objectType.getName() + ": " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    //?==== SP8 & SP8_BIS: Handle Map parameters and Object binding
+    private Object[] prepareMethodArgumentsWithBinding(HttpServletRequest request, Mapping mapping, Map<String, String> pathParams) {
+        Map<String, Class<?>> paramList = mapping.getParameterList();
+        Object[] args = new Object[paramList.size()];
+        int i = 0;
+        
+        Map<String, String[]> allParams = request.getParameterMap();
+        
+        for(Map.Entry<String, Class<?>> entry : paramList.entrySet()) {
+            String paramName = entry.getKey();
+            Class<?> paramType = entry.getValue();
+            
+            //*--- SP8: Check if parameter is a Map
+            if (Map.class.isAssignableFrom(paramType)) {
+                args[i] = createMapFromRequest(request, pathParams);
+            }
+            //*--- SP8_BIS: Check if parameter is a custom object (not primitive/String)
+            else if (isCustomObject(paramType)) {
+                args[i] = createObjectFromRequest(paramType, allParams, paramName);
+            }
+
+            //*--- Regular parameter handling (from Sprint 6)
+            else {
+                String paramValue = null;
+                
+                if (pathParams.containsKey(paramName)) {
+                    paramValue = pathParams.get(paramName);
+                } else {
+                    paramValue = request.getParameter(paramName);
+                }
+                
+                if(paramValue != null) {
+                    args[i] = convertParameterType(paramValue, paramType);
+                } else {
+                    System.out.println("WARNING: Parameter '" + paramName + "' is null");
+                }
+            }
+            i++;
+        }
+        return args;
+    }
+
+    //?==== SP8_BIS Helper: Convert string parameter to the correct type (from Sprint 6)
+    private Object convertParameterType(String value, Class<?> targetType) {
+        if (targetType == String.class) {
+            return value;
+        }
+        
+        if (targetType == int.class || targetType == Integer.class) {
+            return Integer.parseInt(value);
+        }
+        if (targetType == long.class || targetType == Long.class) {
+            return Long.parseLong(value);
+        }
+        if (targetType == double.class || targetType == Double.class) {
+            return Double.parseDouble(value);
+        }
+        if (targetType == float.class || targetType == Float.class) {
+            return Float.parseFloat(value);
+        }
+        if (targetType == boolean.class || targetType == Boolean.class) {
+            return Boolean.parseBoolean(value);
+        }
+        if (targetType == short.class || targetType == Short.class) {
+            return Short.parseShort(value);
+        }
+        if (targetType == byte.class || targetType == Byte.class) {
+            return Byte.parseByte(value);
+        }
+        
+        return value;
     }
 }
