@@ -331,43 +331,57 @@ public class FrontServlet extends HttpServlet {
     //?==== SP8_BIS: Create object instance from request parameters
     private Object createObjectFromRequest(Class<?> objectType, Map<String, String[]> allParams, String objectPrefix) {
         try {
+            System.out.println("Creating object of type: " + objectType.getSimpleName() + " with prefix: '" + objectPrefix + "'");
+            
             // Create instance of the object
             Object instance = objectType.getDeclaredConstructor().newInstance();
             
             // Get all fields of the object
-            Field[] fields = objectType.getDeclaredFields();
+            java.lang.reflect.Field[] fields = objectType.getDeclaredFields();
             
-            for (Field field : fields) {
+            for (java.lang.reflect.Field field : fields) {
                 field.setAccessible(true);
                 String fieldName = field.getName();
                 Class<?> fieldType = field.getType();
                 
                 // Look for parameter with pattern: objectPrefix.fieldName or just fieldName
-                String paramKey = objectPrefix + "." + fieldName;
+                String paramKey = objectPrefix.isEmpty() ? fieldName : objectPrefix + "." + fieldName;
                 String[] paramValues = allParams.get(paramKey);
                 
-                // If not found with prefix, try without prefix
-                if (paramValues == null) {
-                    paramValues = allParams.get(fieldName);
-                }
-                
-                if (paramValues != null && paramValues.length > 0) {
-                    String paramValue = paramValues[0];
+                // Check if field is itself a custom object (nested)
+                if (isCustomObject(fieldType)) {
+                    // For nested objects, check if there are ANY parameters that start with paramKey
+                    boolean hasNestedParams = false;
+                    String nestedPrefix = paramKey + ".";
                     
-                    // Check if field is itself a custom object (nested)
-                    if (isCustomObject(fieldType)) {
-                        Object nestedObject = createObjectFromRequest(fieldType, allParams, paramKey);
-                        field.set(instance, nestedObject);
-                    } else {
-                        // Convert and set primitive/String value
-                        Object convertedValue = convertParameterType(paramValue, fieldType);
-                        field.set(instance, convertedValue);
+                    for (String key : allParams.keySet()) {
+                        if (key.startsWith(nestedPrefix)) {
+                            hasNestedParams = true;
+                            break;
+                        }
                     }
                     
-                    System.out.println("Set " + objectType.getSimpleName() + "." + fieldName + " = " + paramValue);
+                    System.out.println("  Looking for nested field '" + fieldName + "' with prefix: '" + paramKey + "' - Has nested params: " + hasNestedParams);
+                    
+                    if (hasNestedParams) {
+                        System.out.println("  Field '" + fieldName + "' is a nested object, creating recursively...");
+                        Object nestedObject = createObjectFromRequest(fieldType, allParams, paramKey);
+                        field.set(instance, nestedObject);
+                    }
+                } else {
+                    // For primitive/String fields, look for direct parameter
+                    System.out.println("  Looking for field '" + fieldName + "' with key: '" + paramKey + "' - Found: " + (paramValues != null));
+                    
+                    if (paramValues != null && paramValues.length > 0) {
+                        String paramValue = paramValues[0];
+                        Object convertedValue = convertParameterType(paramValue, fieldType);
+                        field.set(instance, convertedValue);
+                        System.out.println("  Set " + objectType.getSimpleName() + "." + fieldName + " = " + paramValue);
+                    }
                 }
             }
             
+            System.out.println("Successfully created: " + instance);
             return instance;
             
         } catch (Exception e) {
