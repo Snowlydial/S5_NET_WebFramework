@@ -12,7 +12,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.lang.reflect.Method;
-import java.lang.reflect.Field;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 
 import com.snowly.framework.Util.Mapping;
 import com.snowly.framework.Annotations.AnotController;
@@ -298,7 +301,8 @@ public class FrontServlet extends HttpServlet {
         return !type.isPrimitive() 
             && !ClassUtils.isPrimitiveWrapper(type)
             && !type.equals(String.class)
-            && !Map.class.isAssignableFrom(type);
+            && !Map.class.isAssignableFrom(type)
+            && !List.class.isAssignableFrom(type);
     }
 
     //?==== SP8_BIS: Create object instance from request parameters
@@ -364,7 +368,7 @@ public class FrontServlet extends HttpServlet {
         }
     }
 
-    //?==== SP8 & SP8_BIS: Handle Map parameters and Object binding
+    //?==== SP8 & SP8_BIS: Handle Map parameters, Object binding + List binding
     private Object[] prepareMethodArgumentsWithBinding(HttpServletRequest request, Mapping mapping, Map<String, String> pathParams) {
         Map<String, Class<?>> paramList = mapping.getParameterList();
         Object[] args = new Object[paramList.size()];
@@ -379,6 +383,11 @@ public class FrontServlet extends HttpServlet {
             //*--- SP8: Check if parameter is a Map
             if (Map.class.isAssignableFrom(paramType)) {
                 args[i] = createMapFromRequest(request, pathParams);
+            }
+            //*--- SP8_BIS: Check if parameter is a List
+            else if (List.class.isAssignableFrom(paramType)) {
+                Type genericType = mapping.getGenericType(paramName);
+                args[i] = createListFromRequest(genericType, allParams, paramName);
             }
             //*--- SP8_BIS: Check if parameter is a custom object (not primitive/String)
             else if (isCustomObject(paramType)) {
@@ -406,7 +415,60 @@ public class FrontServlet extends HttpServlet {
         return args;
     }
 
-    //?==== SP8_BIS Helper: Convert string parameter to the correct type (from Sprint 6)
+    //?==== SP8_BIS: Create List of objects from array-indexed parameters
+    private List<Object> createListFromRequest(Type genericType, Map<String, String[]> allParams, String paramName) {
+        List<Object> resultList = new ArrayList<>();
+        
+        // Extract the actual class from List<ClassName>
+        Class<?> elementClass = null;
+        if (genericType instanceof ParameterizedType) {
+            ParameterizedType pType = (ParameterizedType) genericType;
+            Type[] typeArgs = pType.getActualTypeArguments();
+            if (typeArgs.length > 0 && typeArgs[0] instanceof Class) {
+                elementClass = (Class<?>) typeArgs[0];
+                System.out.println("Detected List element type: " + elementClass.getSimpleName());
+            }
+        }
+        
+        if (elementClass == null) {
+            System.err.println("Could not determine List element type, returning empty list");
+            return resultList;
+        }
+        
+        // Pattern to match: paramName[index].field
+        String arrayPattern = paramName + "\\[(\\d+)\\](\\.(.+))?";
+        Pattern pattern = Pattern.compile(arrayPattern);
+        
+        // Group parameters by index
+        Map<Integer, Map<String, String[]>> indexedParams = new HashMap<>();
+        for (String key : allParams.keySet()) {
+            Matcher matcher = pattern.matcher(key);
+            if (matcher.matches()) {
+                int index = Integer.parseInt(matcher.group(1));
+                indexedParams.putIfAbsent(index, new HashMap<>());
+                indexedParams.get(index).put(key, allParams.get(key));
+            }
+        }
+        
+        System.out.println("Found " + indexedParams.size() + " indexed objects for parameter '" + paramName + "'");
+        
+        // Create objects for each index
+        for (int idx = 0; idx < indexedParams.size(); idx++) {
+            if (indexedParams.containsKey(idx)) {
+                Map<String, String[]> params = indexedParams.get(idx);
+                String objectPrefix = paramName + "[" + idx + "]";
+                
+                Object obj = createObjectFromRequest(elementClass, params, objectPrefix);
+                if (obj != null) {
+                    resultList.add(obj);
+                }
+            }
+        }
+        
+        return resultList;
+    }
+
+    //?==== SP8_BIS Helper: Convert string parameter to the correct type
     private Object convertParameterType(String value, Class<?> targetType) {
         if (targetType == String.class) {
             return value;
