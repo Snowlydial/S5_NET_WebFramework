@@ -136,3 +136,9 @@ If those case, get the attribute of those obj and create the obj instance to use
 Match(same name match like before) + type Casting => Do some Bindings (from param -> create the object; in any case the casting is still important)
 
 GOAL: get instance of the object ready to be used in the method d'action
+
+SP9: AnotJSON
+If a meth in a controller has @AnotJSON, transform the output into a JSON
+ModelView -> getData and transform
+String -> data: the string itself
+Object -> transform data into JSON
