@@ -182,35 +182,7 @@ public class FrontServlet extends HttpServlet {
 
                 Object result = mapping.getMethod().invoke(controllerInstance, args);
                 
-                if (result instanceof ModelView) {
-                    ModelView mv = (ModelView) result;
-
-                    //?---- SP5: Add data for the view if any
-                    HashMap<String, Object> modelViewData = mv.getData();
-                    if(modelViewData.isEmpty()) {
-                        System.out.println("!!!!!!! ModelView Data is EMPTY !!!!!!!");
-                    }
-
-                    for(Map.Entry<String, Object> entry : modelViewData.entrySet()) {
-                        request.setAttribute(entry.getKey(), entry.getValue());
-                    }
-
-                    String viewName = mv.getView();
-                    if (!viewName.startsWith("/")) {
-                        viewName = "/" + viewName;
-                    }
-                    request.getRequestDispatcher(viewName).forward(request, response);
-                    
-                } else if (result instanceof String) {
-                    response.setContentType("text/html;charset=UTF-8");
-                    try (PrintWriter out = response.getWriter()) {
-                        out.println((String) result);
-                    }
-                    
-                } else {
-                    sendError(response, 500, "Unsupported return type: " + 
-                             (result != null ? result.getClass().getName() : "null"));
-                }
+                handleRegularResponse(request, response, result);
                 
             } catch (Exception e) {
                 e.printStackTrace();
@@ -252,6 +224,7 @@ public class FrontServlet extends HttpServlet {
     }
 
     //?==== SP6_Ter: Wrapper that handles path params + regular params
+    @SuppressWarnings("unused")
     private Object[] prepareMethodArgumentsWithPathParams(HttpServletRequest request, Mapping mapping, Map<String, String> pathParams) {
         if (pathParams == null || pathParams.isEmpty()) {
             return prepareMethodArguments(request, mapping);
@@ -462,5 +435,38 @@ public class FrontServlet extends HttpServlet {
         }
         
         return value;
+    }
+
+    //? Handle regular response
+    private void handleRegularResponse(HttpServletRequest request, HttpServletResponse response, Object result) throws IOException, ServletException {
+        if (result instanceof ModelView) {
+            ModelView mv = (ModelView) result;
+
+            //?---- SP5: Add data for the view if any
+            HashMap<String, Object> modelViewData = mv.getData();
+            if(modelViewData.isEmpty()) {
+                System.out.println("!!!!!!! ModelView Data is EMPTY !!!!!!!");
+            }
+
+            for(Map.Entry<String, Object> entry : modelViewData.entrySet()) {
+                request.setAttribute(entry.getKey(), entry.getValue());
+            }
+
+            String viewName = mv.getView();
+            if (!viewName.startsWith("/")) {
+                viewName = "/" + viewName;
+            }
+            request.getRequestDispatcher(viewName).forward(request, response);
+            
+        } else if (result instanceof String) {
+            response.setContentType("text/html;charset=UTF-8");
+            try (PrintWriter out = response.getWriter()) {
+                out.println((String) result);
+            }
+            
+        } else {
+            sendError(response, 500, "Unsupported return type: " + 
+                     (result != null ? result.getClass().getName() : "null"));
+        }
     }
 }
