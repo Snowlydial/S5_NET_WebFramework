@@ -18,13 +18,18 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 
 import com.snowly.framework.Util.Mapping;
+import com.snowly.framework.Util.JsonResponse;
 import com.snowly.framework.Annotations.AnotController;
+import com.snowly.framework.Annotations.AnotJSON;
 import com.snowly.framework.Annotations.AnotURL;
 import com.snowly.framework.Annotations.HTTP_Methods.AnotGetMapping;
 import com.snowly.framework.Annotations.HTTP_Methods.AnotPostMapping;
 import com.snowly.framework.Annotations.HTTP_Methods.AnotRequestMapping;
 import com.snowly.framework.Util.ControllerScanner;
 import com.snowly.framework.Util.ModelView;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import org.apache.commons.lang3.ClassUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 
@@ -185,8 +190,12 @@ public class FrontServlet extends HttpServlet {
 
                 Object result = mapping.getMethod().invoke(controllerInstance, args);
                 
-                handleRegularResponse(request, response, result);
-                
+                boolean isJsonResponse = mapping.getMethod().isAnnotationPresent(AnotJSON.class);
+                if (isJsonResponse) {
+                    handleJsonResponse(response, result);
+                } else {
+                    handleRegularResponse(request, response, result);
+                }
             } catch (Exception e) {
                 e.printStackTrace();
                 sendError(response, 500, "Error invoking method: " + e.getMessage());
@@ -531,4 +540,74 @@ public class FrontServlet extends HttpServlet {
                      (result != null ? result.getClass().getName() : "null"));
         }
     }
+
+    //?==== SP9: Handle JSON response
+    private void handleJsonResponse(HttpServletResponse response, Object result) throws IOException {
+        response.setContentType("application/json;charset=UTF-8");
+        
+        Gson gson = new GsonBuilder().setPrettyPrinting().create();
+        JsonResponse jsonResponse;
+        
+        try {
+            if (result instanceof ModelView) {
+                ModelView mv = (ModelView) result;
+                if(mv.getData().isEmpty()) {
+                    jsonResponse = JsonResponse.error(404, "Resource not found, ModelView Data is Empty");
+                    response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                } else {
+                    jsonResponse = JsonResponse.success(mv.getData());
+                    response.setStatus(HttpServletResponse.SC_OK);
+                }
+            } else if (result instanceof String) { 
+                jsonResponse = JsonResponse.success(result);
+                response.setStatus(HttpServletResponse.SC_OK);
+            } else if (result instanceof List) {
+                if( ((List<?>) result).isEmpty()) {
+                    jsonResponse = JsonResponse.error(404, "Resource not found, List is Empty");
+                    response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                } else {
+                    jsonResponse = JsonResponse.success(result);
+                    response.setStatus(HttpServletResponse.SC_OK);
+                }
+            } else if (result instanceof Map) {
+                if( ((Map<?,?>) result).isEmpty()) {
+                    jsonResponse = JsonResponse.error(404, "Resource not found, Map is Empty");
+                    response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                } else {
+                    jsonResponse = JsonResponse.success(result);
+                    response.setStatus(HttpServletResponse.SC_OK);
+                }
+            } else {
+                if(result == null) {
+                jsonResponse = JsonResponse.error(404, "Resource not found, Object is Null");
+                response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                } else {
+                    jsonResponse = JsonResponse.success(result);
+                    response.setStatus(HttpServletResponse.SC_OK);
+                }
+            }
+            
+            String json = gson.toJson(jsonResponse);
+            
+            try (PrintWriter out = response.getWriter()) {
+                out.print(json);
+            }
+            
+            System.out.println("JSON Response sent (" + response.getStatus() + "): " + json);
+            
+        } catch (Exception e) {
+            //*--- Error during JSON serialization
+            System.err.println("Error creating JSON response: " + e.getMessage());
+            e.printStackTrace();
+            
+            jsonResponse = JsonResponse.error(500, "Internal server error: " + e.getMessage());
+            String errorJson = gson.toJson(jsonResponse);
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            
+            try (PrintWriter out = response.getWriter()) {
+                out.print(errorJson);
+            }
+        }
+    }
+
 }
