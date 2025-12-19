@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.lang.reflect.Type;
 
 import com.snowly.framework.Annotations.AnotParam;
 
@@ -16,6 +17,7 @@ public class Mapping {
     private final Method method;
     private boolean hasPathParams;
     private Map<String, Class<?>> parameterList;
+    private Map<String, Type> parameterGenericTypes;
 
     //?==== SP6_Ter: For path parameter extraction
     private Pattern urlPattern;
@@ -29,6 +31,7 @@ public class Mapping {
         this.controllerClass = _controClass;
         this.method = _method;
         this.parameterList = new LinkedHashMap<>();
+        this.parameterGenericTypes = new LinkedHashMap<>();
         this.pathParamNames = new ArrayList<>();
         
         Parameter[] params = _method.getParameters();
@@ -46,6 +49,7 @@ public class Mapping {
             }
             
             parameterList.put(requestParamName, param.getType());
+            parameterGenericTypes.put(requestParamName, param.getParameterizedType());
         }
     }
 
@@ -135,6 +139,11 @@ public class Mapping {
 
     public String getHttpMethod() {
         return httpMethod;
+    }
+
+    //?=== SP8 BIS: freaking crochet
+    public Type getGenericType(String paramName) {
+        return parameterGenericTypes.get(paramName);
     }
 
     //?=== Setters

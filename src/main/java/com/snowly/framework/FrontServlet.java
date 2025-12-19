@@ -12,7 +12,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.lang.reflect.Method;
-import java.lang.reflect.Field;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 
 import com.snowly.framework.Util.Mapping;
 import com.snowly.framework.Annotations.AnotController;
@@ -182,35 +185,7 @@ public class FrontServlet extends HttpServlet {
 
                 Object result = mapping.getMethod().invoke(controllerInstance, args);
                 
-                if (result instanceof ModelView) {
-                    ModelView mv = (ModelView) result;
-
-                    //?---- SP5: Add data for the view if any
-                    HashMap<String, Object> modelViewData = mv.getData();
-                    if(modelViewData.isEmpty()) {
-                        System.out.println("!!!!!!! ModelView Data is EMPTY !!!!!!!");
-                    }
-
-                    for(Map.Entry<String, Object> entry : modelViewData.entrySet()) {
-                        request.setAttribute(entry.getKey(), entry.getValue());
-                    }
-
-                    String viewName = mv.getView();
-                    if (!viewName.startsWith("/")) {
-                        viewName = "/" + viewName;
-                    }
-                    request.getRequestDispatcher(viewName).forward(request, response);
-                    
-                } else if (result instanceof String) {
-                    response.setContentType("text/html;charset=UTF-8");
-                    try (PrintWriter out = response.getWriter()) {
-                        out.println((String) result);
-                    }
-                    
-                } else {
-                    sendError(response, 500, "Unsupported return type: " + 
-                             (result != null ? result.getClass().getName() : "null"));
-                }
+                handleRegularResponse(request, response, result);
                 
             } catch (Exception e) {
                 e.printStackTrace();
@@ -252,6 +227,7 @@ public class FrontServlet extends HttpServlet {
     }
 
     //?==== SP6_Ter: Wrapper that handles path params + regular params
+    @SuppressWarnings("unused")
     private Object[] prepareMethodArgumentsWithPathParams(HttpServletRequest request, Mapping mapping, Map<String, String> pathParams) {
         if (pathParams == null || pathParams.isEmpty()) {
             return prepareMethodArguments(request, mapping);
@@ -325,49 +301,64 @@ public class FrontServlet extends HttpServlet {
         return !type.isPrimitive() 
             && !ClassUtils.isPrimitiveWrapper(type)
             && !type.equals(String.class)
-            && !Map.class.isAssignableFrom(type);
+            && !Map.class.isAssignableFrom(type)
+            && !List.class.isAssignableFrom(type);
     }
 
     //?==== SP8_BIS: Create object instance from request parameters
     private Object createObjectFromRequest(Class<?> objectType, Map<String, String[]> allParams, String objectPrefix) {
         try {
+            System.out.println("Creating object of type: " + objectType.getSimpleName() + " with prefix: '" + objectPrefix + "'");
+            
             // Create instance of the object
             Object instance = objectType.getDeclaredConstructor().newInstance();
             
             // Get all fields of the object
-            Field[] fields = objectType.getDeclaredFields();
+            java.lang.reflect.Field[] fields = objectType.getDeclaredFields();
             
-            for (Field field : fields) {
+            for (java.lang.reflect.Field field : fields) {
                 field.setAccessible(true);
                 String fieldName = field.getName();
                 Class<?> fieldType = field.getType();
                 
                 // Look for parameter with pattern: objectPrefix.fieldName or just fieldName
-                String paramKey = objectPrefix + "." + fieldName;
+                String paramKey = objectPrefix.isEmpty() ? fieldName : objectPrefix + "." + fieldName;
                 String[] paramValues = allParams.get(paramKey);
                 
-                // If not found with prefix, try without prefix
-                if (paramValues == null) {
-                    paramValues = allParams.get(fieldName);
-                }
-                
-                if (paramValues != null && paramValues.length > 0) {
-                    String paramValue = paramValues[0];
+                // Check if field is itself a custom object (nested)
+                if (isCustomObject(fieldType)) {
+                    // For nested objects, check if there are ANY parameters that start with paramKey
+                    boolean hasNestedParams = false;
+                    String nestedPrefix = paramKey + ".";
                     
-                    // Check if field is itself a custom object (nested)
-                    if (isCustomObject(fieldType)) {
-                        Object nestedObject = createObjectFromRequest(fieldType, allParams, paramKey);
-                        field.set(instance, nestedObject);
-                    } else {
-                        // Convert and set primitive/String value
-                        Object convertedValue = convertParameterType(paramValue, fieldType);
-                        field.set(instance, convertedValue);
+                    for (String key : allParams.keySet()) {
+                        if (key.startsWith(nestedPrefix)) {
+                            hasNestedParams = true;
+                            break;
+                        }
                     }
                     
-                    System.out.println("Set " + objectType.getSimpleName() + "." + fieldName + " = " + paramValue);
+                    System.out.println("  Looking for nested field '" + fieldName + "' with prefix: '" + paramKey + "' - Has nested params: " + hasNestedParams);
+                    
+                    if (hasNestedParams) {
+                        System.out.println("  Field '" + fieldName + "' is a nested object, creating recursively...");
+                        Object nestedObject = createObjectFromRequest(fieldType, allParams, paramKey);
+                        field.set(instance, nestedObject);
+                    }
+                } else {
+                    // For primitive/String fields, look for direct parameter
+                    System.out.println("  Looking for field '" + fieldName + "' with key: '" + paramKey + "' - Found: " + (paramValues != null));
+                    
+                    if (paramValues != null && paramValues.length > 0) {
+                        String paramValue = paramValues[0];
+                        Object convertedValue = convertParameterType(paramValue, fieldType);
+                        field.set(instance, convertedValue);
+                        System.out.println("  Set " + objectType.getSimpleName() + "." + fieldName + " = " + paramValue);
+                    }
                 }
             }
             
+            System.out.println("Successfully created: " + instance);
             return instance;
             
         } catch (Exception e) {
@@ -377,7 +368,7 @@ public class FrontServlet extends HttpServlet {
         }
     }
 
-    //?==== SP8 & SP8_BIS: Handle Map parameters and Object binding
+    //?==== SP8 & SP8_BIS: Handle Map parameters, Object binding + List binding
     private Object[] prepareMethodArgumentsWithBinding(HttpServletRequest request, Mapping mapping, Map<String, String> pathParams) {
         Map<String, Class<?>> paramList = mapping.getParameterList();
         Object[] args = new Object[paramList.size()];
@@ -392,6 +383,11 @@ public class FrontServlet extends HttpServlet {
             //*--- SP8: Check if parameter is a Map
             if (Map.class.isAssignableFrom(paramType)) {
                 args[i] = createMapFromRequest(request, pathParams);
+            }
+            //*--- SP8_BIS: Check if parameter is a List
+            else if (List.class.isAssignableFrom(paramType)) {
+                Type genericType = mapping.getGenericType(paramName);
+                args[i] = createListFromRequest(genericType, allParams, paramName);
             }
             //*--- SP8_BIS: Check if parameter is a custom object (not primitive/String)
             else if (isCustomObject(paramType)) {
@@ -419,7 +415,60 @@ public class FrontServlet extends HttpServlet {
         return args;
     }
 
-    //?==== SP8_BIS Helper: Convert string parameter to the correct type (from Sprint 6)
+    //?==== SP8_BIS: Create List of objects from array-indexed parameters
+    private List<Object> createListFromRequest(Type genericType, Map<String, String[]> allParams, String paramName) {
+        List<Object> resultList = new ArrayList<>();
+        
+        // Extract the actual class from List<ClassName>
+        Class<?> elementClass = null;
+        if (genericType instanceof ParameterizedType) {
+            ParameterizedType pType = (ParameterizedType) genericType;
+            Type[] typeArgs = pType.getActualTypeArguments();
+            if (typeArgs.length > 0 && typeArgs[0] instanceof Class) {
+                elementClass = (Class<?>) typeArgs[0];
+                System.out.println("Detected List element type: " + elementClass.getSimpleName());
+            }
+        }
+        
+        if (elementClass == null) {
+            System.err.println("Could not determine List element type, returning empty list");
+            return resultList;
+        }
+        
+        // Pattern to match: paramName[index].field
+        String arrayPattern = paramName + "\\[(\\d+)\\](\\.(.+))?";
+        Pattern pattern = Pattern.compile(arrayPattern);
+        
+        // Group parameters by index
+        Map<Integer, Map<String, String[]>> indexedParams = new HashMap<>();
+        for (String key : allParams.keySet()) {
+            Matcher matcher = pattern.matcher(key);
+            if (matcher.matches()) {
+                int index = Integer.parseInt(matcher.group(1));
+                indexedParams.putIfAbsent(index, new HashMap<>());
+                indexedParams.get(index).put(key, allParams.get(key));
+            }
+        }
+        
+        System.out.println("Found " + indexedParams.size() + " indexed objects for parameter '" + paramName + "'");
+        
+        // Create objects for each index
+        for (int idx = 0; idx < indexedParams.size(); idx++) {
+            if (indexedParams.containsKey(idx)) {
+                Map<String, String[]> params = indexedParams.get(idx);
+                String objectPrefix = paramName + "[" + idx + "]";
+                
+                Object obj = createObjectFromRequest(elementClass, params, objectPrefix);
+                if (obj != null) {
+                    resultList.add(obj);
+                }
+            }
+        }
+        
+        return resultList;
+    }
+
+    //?==== SP8_BIS Helper: Convert string parameter to the correct type
     private Object convertParameterType(String value, Class<?> targetType) {
         if (targetType == String.class) {
             return value;
@@ -448,5 +497,38 @@ public class FrontServlet extends HttpServlet {
         }
         
         return value;
+    }
+
+    //? Handle regular response
+    private void handleRegularResponse(HttpServletRequest request, HttpServletResponse response, Object result) throws IOException, ServletException {
+        if (result instanceof ModelView) {
+            ModelView mv = (ModelView) result;
+
+            //?---- SP5: Add data for the view if any
+            HashMap<String, Object> modelViewData = mv.getData();
+            if(modelViewData.isEmpty()) {
+                System.out.println("!!!!!!! ModelView Data is EMPTY !!!!!!!");
+            }
+
+            for(Map.Entry<String, Object> entry : modelViewData.entrySet()) {
+                request.setAttribute(entry.getKey(), entry.getValue());
+            }
+
+            String viewName = mv.getView();
+            if (!viewName.startsWith("/")) {
+                viewName = "/" + viewName;
+            }
+            request.getRequestDispatcher(viewName).forward(request, response);
+            
+        } else if (result instanceof String) {
+            response.setContentType("text/html;charset=UTF-8");
+            try (PrintWriter out = response.getWriter()) {
+                out.println((String) result);
+            }
+            
+        } else {
+            sendError(response, 500, "Unsupported return type: " + 
+                     (result != null ? result.getClass().getName() : "null"));
+        }
     }
 }
