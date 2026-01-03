@@ -142,3 +142,15 @@ If a meth in a controller has @AnotJSON, transform the output into a JSON
 ModelView -> getData and transform
 String -> data: the string itself
 Object -> transform data into JSON
+
+SP10: Attachement/Upload
+In FS, verify if there is an attachement or not in the request
+How: like getParameter but getParts instead???
+
+This Parts[] is then converted/returned as bytes[] but we can also get the var names from it.
+So we return name + bytes[] as a map?
+When calling the method/function, we previously returned a map
+We can use a similar approach, the method in that case can have multiple maps arguments..., one is the previous map we did 
+and the other one is the byte map 
+
+Another approach would be make the parts/bytes stuff an argument of the controller instead...which was recommended by the instructor
