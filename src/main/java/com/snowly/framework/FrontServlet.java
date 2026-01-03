@@ -2,12 +2,16 @@ package com.snowly.framework;
 
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.MultipartConfig;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.Part;
+
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +30,7 @@ import com.snowly.framework.Annotations.HTTP_Methods.AnotGetMapping;
 import com.snowly.framework.Annotations.HTTP_Methods.AnotPostMapping;
 import com.snowly.framework.Annotations.HTTP_Methods.AnotRequestMapping;
 import com.snowly.framework.Util.ControllerScanner;
+import com.snowly.framework.Util.FileUpload;
 import com.snowly.framework.Util.ModelView;
 
 import com.google.gson.Gson;
@@ -33,6 +38,11 @@ import com.google.gson.GsonBuilder;
 import org.apache.commons.lang3.ClassUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 
+@MultipartConfig(
+    maxFileSize = 1024 * 1024 * 10,      // 10 MB max file size
+    maxRequestSize = 1024 * 1024 * 50,   // 50 MB max request size
+    fileSizeThreshold = 1024 * 1024      // 1 MB threshold for temp files
+)
 public class FrontServlet extends HttpServlet {
     
     @Override
@@ -280,24 +290,46 @@ public class FrontServlet extends HttpServlet {
         return null;
     }
 
-    //?==== SP8: Create Map from ALL request parameters
+    //?==== SP8: Create Map from ALL request parameters (including multipart form fields)
     private Map<String, Object> createMapFromRequest(HttpServletRequest request, Map<String, String> pathParams) {
         Map<String, Object> resultMap = new HashMap<>();
         
         //*--- Add all path parameters
         resultMap.putAll(pathParams);
         
-        //*--- Add all request parameters
-        Map<String, String[]> allParams = request.getParameterMap();
-        for (Map.Entry<String, String[]> entry : allParams.entrySet()) {
-            String key = entry.getKey();
-            String[] values = entry.getValue();
-            
-            // If multiple values (checkboxes), store as array; otherwise store single value
-            if (values.length == 1) {
-                resultMap.put(key, values[0]);
-            } else {
-                resultMap.put(key, values);
+        //*--- Check if this is a multipart request
+        String contentType = request.getContentType();
+        if (contentType != null && contentType.toLowerCase().startsWith("multipart/")) {
+            // For multipart requests, extract form fields from Parts
+            try {
+                Collection<Part> parts = request.getParts();
+                for (Part part : parts) {
+                    String fieldName = part.getName();
+                    String filename = part.getSubmittedFileName();
+                    
+                    // Only process non-file fields (regular form inputs)
+                    if (filename == null || filename.isEmpty()) {
+                        // Read the text value
+                        String value = new String(part.getInputStream().readAllBytes());
+                        resultMap.put(fieldName, value);
+                        System.out.println("Extracted form field: " + fieldName + " = " + value);
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("Error extracting multipart form fields: " + e.getMessage());
+            }
+        } else {
+            // Regular request - use getParameterMap()
+            Map<String, String[]> allParams = request.getParameterMap();
+            for (Map.Entry<String, String[]> entry : allParams.entrySet()) {
+                String key = entry.getKey();
+                String[] values = entry.getValue();
+                
+                if (values.length == 1) {
+                    resultMap.put(key, values[0]);
+                } else {
+                    resultMap.put(key, values);
+                }
             }
         }
         
@@ -377,28 +409,37 @@ public class FrontServlet extends HttpServlet {
         }
     }
 
-    //?==== SP8 & SP8_BIS: Handle Map parameters, Object binding + List binding
+    //?==== SP8 & SP8_BIS & SP10: Handle Map parameters, Object binding + List binding
     private Object[] prepareMethodArgumentsWithBinding(HttpServletRequest request, Mapping mapping, Map<String, String> pathParams) {
         Map<String, Class<?>> paramList = mapping.getParameterList();
         Object[] args = new Object[paramList.size()];
         int i = 0;
         
         Map<String, String[]> allParams = request.getParameterMap();
+        List<FileUpload> fileUploads = extractFileUploads(request);
         
         for(Map.Entry<String, Class<?>> entry : paramList.entrySet()) {
             String paramName = entry.getKey();
             Class<?> paramType = entry.getValue();
             
-            //*--- SP8: Check if parameter is a Map
-            if (Map.class.isAssignableFrom(paramType)) {
+            //*--- SP10: Check if parameter is a List (could be FileUpload or custom objects)
+            if (List.class.isAssignableFrom(paramType)) {
+                Type genericType = mapping.getGenericType(paramName);
+                
+                if (isFileUploadList(genericType)) {
+                    System.out.println("Injecting file upload list for parameter: " + paramName);
+                    args[i] = fileUploads;
+                } else {
+                    // Regular List<CustomObject>
+                    args[i] = createListFromRequest(genericType, allParams, paramName);
+                }
+            }
+            //*--- SP8: Check if parameter is a Map (for form data)
+            else if (Map.class.isAssignableFrom(paramType)) {
+                System.out.println("Injecting form data map for parameter: " + paramName);
                 args[i] = createMapFromRequest(request, pathParams);
             }
-            //*--- SP8_BIS: Check if parameter is a List
-            else if (List.class.isAssignableFrom(paramType)) {
-                Type genericType = mapping.getGenericType(paramName);
-                args[i] = createListFromRequest(genericType, allParams, paramName);
-            }
-            //*--- SP8_BIS: Check if parameter is a custom object (not primitive/String)
+            //*--- SP8_BIS: Check if parameter is a custom object
             else if (isCustomObject(paramType)) {
                 args[i] = createObjectFromRequest(paramType, allParams, paramName);
             }
@@ -610,4 +651,53 @@ public class FrontServlet extends HttpServlet {
         }
     }
 
+    //?==== SP10: Check if Map parameter is for file uploads
+    private boolean isFileUploadList(Type genericType) {
+        if (genericType instanceof ParameterizedType) {
+            ParameterizedType pType = (ParameterizedType) genericType;
+            Type[] typeArgs = pType.getActualTypeArguments();
+            
+            if (typeArgs.length > 0 && typeArgs[0] instanceof Class) {
+                Class<?> elementClass = (Class<?>) typeArgs[0];
+                return elementClass.equals(FileUpload.class);
+            }
+        }
+        return false;
+    }
+
+    //?==== SP10: Extract file uploads from request
+    private List<FileUpload> extractFileUploads(HttpServletRequest request) {
+        List<FileUpload> fileList = new ArrayList<>();
+        
+        try {
+            String contentType = request.getContentType();
+            if (contentType == null || !contentType.toLowerCase().startsWith("multipart/")) {
+                return fileList;
+            }
+            
+            Collection<Part> parts = request.getParts();
+            System.out.println("Found " + parts.size() + " parts in request");
+            
+            for (Part part : parts) {
+                String fieldName = part.getName();
+                String filename = part.getSubmittedFileName();
+                
+                if (filename != null && !filename.isEmpty()) {
+                    byte[] fileBytes = part.getInputStream().readAllBytes();
+                    String fileContentType = part.getContentType();
+                    
+                    FileUpload file = new FileUpload(fieldName, filename, fileBytes, fileContentType);
+                    fileList.add(file);
+                    
+                    System.out.println("Extracted: " + file);
+                }
+            }
+            
+        } catch (Exception e) {
+            System.err.println("Error extracting file uploads: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        return fileList;
+    }
 }
