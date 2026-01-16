@@ -126,6 +126,7 @@ public class FrontServlet extends HttpServlet {
         Mapping mapping = null;
         Map<String, String> pathParams = new HashMap<>();
 
+        //======== Determine the correct mapping ========
         //?--- SP6_Simple: Try parameter name exact match
         if (urlHashmapping != null && urlHashmapping.containsKey(path)) {
             List<Mapping> candidates = urlHashmapping.get(path);
@@ -154,6 +155,7 @@ public class FrontServlet extends HttpServlet {
             }
         }
 
+        //======== Call the action method associated to the URL ========
         if (mapping != null) {
             try {
                 Object controllerInstance = mapping.getControllerClass().getDeclaredConstructor().newInstance();
