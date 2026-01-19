@@ -154,3 +154,20 @@ We can use a similar approach, the method in that case can have multiple maps ar
 and the other one is the byte map 
 
 Another approach would be make the parts/bytes stuff an argument of the controller instead...which was recommended by the instructor
+
+SP11: Session handling with @AnotSession
+Session should be handled within the method inside a @Controller
+Use HashMap<String, object>
+Make sure in FS it checks if there is a function with a parameter using @AnotSession
+@AnotSession will be associated to Parameters of a function
+The method using @AnotSession Map<String, Object>
+
+We don't use httpsession at all (prohibited), no http-servlet in the test-project side.
+Creating a session means save it to local, in a map in FS ???
+Then we could just call/reference it for future calls
+
+Manipulation de session always within the method of controller
+you can get/overwrite (put), send
+
+Sending to Model view => Http session = sess
+
