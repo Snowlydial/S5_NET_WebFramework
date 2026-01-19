@@ -17,7 +17,7 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-// Contains SP8, SP8_BIS, SP10 declarations
+// Contains SP8, SP8_BIS, SP10, SP11 declarations
 public class ParameterResolver {
 
     //?==== SP8 & SP8_BIS & SP10 & SP11: Handle Map parameters, Object binding, List binding, Session
