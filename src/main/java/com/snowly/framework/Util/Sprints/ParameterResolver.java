@@ -1,12 +1,16 @@
 package com.snowly.framework.Util.Sprints;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import jakarta.servlet.http.Part;
 import org.apache.commons.lang3.ClassUtils;
 
+import com.snowly.framework.Annotations.AnotSession;
 import com.snowly.framework.Util.FileUpload;
 import com.snowly.framework.Util.Mapping;
+import com.snowly.framework.Util.SessionMap;
 
+import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.*;
@@ -16,7 +20,7 @@ import java.util.regex.Pattern;
 // Contains SP8, SP8_BIS, SP10 declarations
 public class ParameterResolver {
 
-    //?==== SP8 & SP8_BIS & SP10: Handle Map parameters, Object binding + List binding
+    //?==== SP8 & SP8_BIS & SP10 & SP11: Handle Map parameters, Object binding, List binding, Session
     public static Object[] prepareMethodArguments(HttpServletRequest request, Mapping mapping, Map<String, String> pathParams) {
         Map<String, Class<?>> paramList = mapping.getParameterList();
         Object[] args = new Object[paramList.size()];
@@ -25,12 +29,27 @@ public class ParameterResolver {
         Map<String, String[]> allParams = request.getParameterMap();
         List<FileUpload> fileUploads = extractFileUploads(request);
         
+        //?--- SP11: Get method parameters to check for @AnotSession
+        Parameter[] parameters = mapping.getMethod().getParameters();
+        
         for(Map.Entry<String, Class<?>> entry : paramList.entrySet()) {
             String paramName = entry.getKey();
             Class<?> paramType = entry.getValue();
+            Parameter currentParam = parameters[i];
             
+            //*--- SP11: Check if parameter has @AnotSession annotation
+            if (currentParam.isAnnotationPresent(AnotSession.class)) {
+                if (Map.class.isAssignableFrom(paramType)) {
+                    HttpSession session = request.getSession(true); // Create session if doesn't exist
+                    args[i] = new SessionMap(session);
+                    System.out.println("Injecting session map for parameter: " + paramName);
+                } else {
+                    System.err.println("WARNING: @AnotSession used on non-Map parameter: " + paramName);
+                    args[i] = null;
+                }
+            }
             //*--- SP10: Check if parameter is a List (could be FileUpload or custom objects)
-            if (List.class.isAssignableFrom(paramType)) {
+            else if (List.class.isAssignableFrom(paramType)) {
                 Type genericType = mapping.getGenericType(paramName);
                 
                 if (isFileUploadList(genericType)) {
