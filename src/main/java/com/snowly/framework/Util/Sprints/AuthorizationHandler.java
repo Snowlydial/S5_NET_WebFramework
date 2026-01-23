@@ -20,13 +20,19 @@ public class AuthorizationHandler {
     //?==== SP11_BIS: Check if user is authorized to access the method
     public static boolean checkAuthorization(HttpServletRequest request, HttpServletResponse response, Method method, ServletContext servletContext) throws IOException {
         
-        //*--- Get the session auth key from web.xml configuration
+        //*--- Get the session auth and role keys from web.xml configuration
         String authKey = servletContext.getInitParameter("session.auth.key");
         if (authKey == null || authKey.isEmpty()) {
-            authKey = "userRole";  // Default if not configured
-            System.out.println("WARNING: session.auth.key not configured in web.xml, using default: 'userRole'");
+            authKey = "isLoggedIn";  // Default auth flag key
+            System.out.println("WARNING: session.auth.key not configured in web.xml, using default: 'isLoggedIn'");
         }
-        
+
+        String roleKey = servletContext.getInitParameter("session.role.key");
+        if (roleKey == null || roleKey.isEmpty()) {
+            roleKey = "userRole"; // Default role key
+            System.out.println("WARNING: session.role.key not configured in web.xml, using default: 'userRole'");
+        }
+
         HttpSession session = request.getSession(false);
         
         //*--- Check @Authorized annotation
@@ -48,7 +54,7 @@ public class AuthorizationHandler {
                 return false;
             }
             
-            if (!hasRequiredRole(session, authKey, requiredRoles)) {
+            if (!hasRequiredRole(session, roleKey, requiredRoles)) {
                 sendAuthError(response, request, 403, "Forbidden", 
                             "You do not have permission to access this resource. Required role(s): " + 
                             Arrays.toString(requiredRoles));
@@ -66,19 +72,23 @@ public class AuthorizationHandler {
         if (session == null) {
             return false;
         }
-        
-        Object roleValue = session.getAttribute(authKey);
-        return roleValue != null;
+
+        Object val = session.getAttribute(authKey);
+        if (val == null) return false;
+        if (val instanceof Boolean) return (Boolean) val;
+        if (val instanceof String) return Boolean.parseBoolean((String) val);
+
+        return true;
     }
-    
+
     //?==== SP11_BIS: Check if user Role meet requirements role
-    private static boolean hasRequiredRole(HttpSession session, String authKey, String[] requiredRoles) {
+    private static boolean hasRequiredRole(HttpSession session, String roleKey, String[] requiredRoles) {
         if (session == null) {
             return false;
         }
-        
-        Object roleValue = session.getAttribute(authKey); // either a list or a string
-        System.out.println("User role value from session: " + roleValue);
+
+        Object roleValue = session.getAttribute(roleKey);
+        System.out.println("User role value from session (key='" + roleKey + "'): " + roleValue);
         if (roleValue == null) {
             return false;
         }
