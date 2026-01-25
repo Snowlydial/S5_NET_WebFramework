@@ -12,13 +12,14 @@ import java.lang.reflect.Method;
 import java.util.*;
 
 import com.snowly.framework.Util.*;
+import com.snowly.framework.Util.Sprints.AuthorizationHandler;
 import com.snowly.framework.Util.Sprints.ParameterResolver;
 import com.snowly.framework.Util.Sprints.ResponseHandler;
 import com.snowly.framework.Annotations.*;
 import com.snowly.framework.Annotations.HTTP_Methods.*;
 
 // Contains SP6, SP6_TER declarations
-// Uses SP7(GET/POST), ParameterSolver(SP8, SP8_BIS, SP10), ResponseHandler(SP5, SP9)
+// Uses SP7(GET/POST), ParameterSolver(SP8, SP8_BIS, SP10, SP11), ResponseHandler(SP5, SP9), AuthorizationHandler(SP11_BIS)
 @MultipartConfig(
     maxFileSize = 1024 * 1024 * 10,      // 10 MB max file size
     maxRequestSize = 1024 * 1024 * 50,   // 50 MB max request size
@@ -158,9 +159,14 @@ public class FrontServlet extends HttpServlet {
         //======== Call the action method associated to the URL ========
         if (mapping != null) {
             try {
+                //?=== SP11_BIS: Check authorization before invoking method
+                if (!AuthorizationHandler.checkAuthorization(request, response, mapping.getMethod(), servletContext)) {
+                    return;
+                }
+                
                 Object controllerInstance = mapping.getControllerClass().getDeclaredConstructor().newInstance();
                 
-                //?=== SP8 & SP8_BIS & SP10: Prepare arguments (check if Map, List, Object binding, multipart/file upload)
+                //?=== SP8 & SP8_BIS & SP10: Prepare arguments
                 Object[] args = ParameterResolver.prepareMethodArguments(request, mapping, pathParams);
                 Object result = mapping.getMethod().invoke(controllerInstance, args);
                 

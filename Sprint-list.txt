@@ -171,3 +171,25 @@ you can get/overwrite (put), send
 
 Sending to Model view => Http session = sess
 
+SP11_bis: Protection and Authorization
+a/ @AnotRole(String role) or Multiple roles ("role1","role2","role3")
+-> restrict to only this person can do this method action
+-> either user is connected
+
+b/ @Authorized
+-> User must be connected, once connected, they can use the @Authorized Method no matter the role
+
+c/ no anotation
+anonymous => Anybody can access/use
+
+Solution:
+Our framework has a Configuration file, either a xml or .properties
+In there we expose the name of the Auth+StringValueTheDevCanUse
+For example in the xml we have
+param name: Auth
+param value: devValue
+
+In their controller, they put in session something like this: @Session hashmap<String,Object> sessionData.put("devValue", "roleName")
+which means Auth(framework) <=> devValue(Dev side)
+Thus "roleName" can fill the requierement of Authorized
+For @AnotRole("someValue"), it should normally check the matching between the currentLogged userRole and the value in annotation
