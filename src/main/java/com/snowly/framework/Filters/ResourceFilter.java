@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.URL;
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 public class ResourceFilter implements Filter {
     
@@ -24,11 +25,12 @@ public class ResourceFilter implements Filter {
         
         System.out.println("[ResourceFilter] Request: " + resourcePath);
         
-        // Handle root path
+        // Handle root path - redirect to /home
         if (resourcePath.isEmpty() || resourcePath.equals("/")) {
-            resourcePath = "/index.html";
-            httpRequest = new CustomRequestWrapper(httpRequest, resourcePath);
-            System.out.println("[ResourceFilter] Redirected root to: " + resourcePath);
+            HttpServletResponse httpResponse = (HttpServletResponse) response;
+            httpResponse.sendRedirect(contextPath + "/home");
+            System.out.println("[ResourceFilter] Redirected root to: /home");
+            return;
         }
         
         if (handleJSP(httpRequest, response, resourcePath, chain)) {
@@ -83,7 +85,7 @@ public class ResourceFilter implements Filter {
     }
 
     private boolean isStaticResource(String path) {
-        return path.matches(".*\\.(html|htm|css|js|jpg|jpeg|png|gif|ico|svg|txt|pdf)$");
+        return path.matches(".*\\.(html|htm|css|js|jpg|jpeg|png|gif|ico|svg|txt|pdf|woff|woff2|ttf|eot|otf|map)$");
     }
 
     private boolean resourceExists(String resourcePath) {
