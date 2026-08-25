@@ -56,8 +56,7 @@ src/main/java/com/snowly/framework/
 │   ├── FileUpload.java
 │   └── SessionMap.java
 └── Filters/
-    ├── ResourceFilter.java
-    └── CustomRequestWrapper.java
+    └── ResourceFilter.java
 ```
 
 ## Getting Started
